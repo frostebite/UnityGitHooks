@@ -66,9 +66,9 @@ https://github.com/evilmartians/lefthook
   parallel: false
   commands:
     init_unity_lefthook:
-      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0a12c8631a/~js/init-unity-lefthook.js
+      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0393cd0071/~js/init-unity-lefthook.js
     run_unity_tests_lefthook:
-      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0a12c8631a/~js/run-unity-tests.js EditMode LefthookCore
+      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0393cd0071/~js/run-unity-tests.js EditMode LefthookCore
   ```
 3) push your new `lefthook.yml` for other project contributors to git!
 
