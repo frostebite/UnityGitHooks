@@ -2,6 +2,8 @@
 using UnityEngine;
 
 public class LeftHookWindow : EditorWindow {
+    
+    [MenuItem("Window/GitHooks/Install Window")]
     public static void ShowWindow()
     {
         GetWindow<LeftHookWindow>("LeftHook");
