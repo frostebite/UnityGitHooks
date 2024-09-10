@@ -1,10 +1,12 @@
 # Easily use git hooks in Unity projects
 
-"Unity Git Hooks" comes with further utilities to handle common Unity workflow needs
-- Hook management (via Lefthook)
-- Run tests
-- Require compiling code
-- Require git plugin installed
+"Unity Git Hooks" comes with further options for common Unity workflow needs:
+- Automatically find Unity installation folder and correct project editor version
+- Open editor or immediately run jobs in the editor if already open
+- Trigger any command-line tool, Unity test or Unity editor script
+- Pre-made checks requiring compiling code to commit/push code
+- Enforce local (git plugins)
+- Tidy management of many Hooks (via Lefthook)
 
 ## What is Lefthook
 "Unity Git Hooks" requires and helps you install "Lefthook", Lefthook allows you to easily set up and manage git hooks.
@@ -73,17 +75,15 @@ https://github.com/evilmartians/lefthook
 Also
 - [See more Lefthook examples](https://github.com/evilmartians/lefthook?tab=readme-ov-file#why-lefthook)
 
-## Configuration options
+### Configuration options
 
-### init-unity-lefthook
-required, installs required NPM modules for Unity Lefthook.
+#### init-unity-lefthook
+- required, installs required NPM modules for Unity Lefthook.
 
-### run-unity-tests
-Allows you to run playmode or editmode tests with a category filter
+#### run-unity-tests
+- Allows you to run playmode or editmode tests with a category filter
 
-### apply-lfs-plugin-module
-Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
-
-
+#### apply-lfs-plugin-module
+- Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
 
 
