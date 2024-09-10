@@ -4,7 +4,7 @@
 - Automatically find Unity installation folder and correct project editor version
 - Open editor or immediately run jobs in the editor if already open
 - Trigger any command-line tool, Unity test or Unity editor script
-- Pre-made checks requiring compiling code to commit/push code
+- Pre-made checks requiring compiling code to commit or push code
 - Enforce local (git plugins)
 - Tidy management of many Hooks (via Lefthook)
 
