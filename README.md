@@ -57,7 +57,7 @@ __Manual__
 
 https://github.com/evilmartians/lefthook
 
-## Configure your git hooks with Lefthook
+## Configure git hooks with Lefthook
 
 1) Run ```lefthook install``` command or via editor prompt button to generate a new `lefthook.yml`
 2) Example workflow
