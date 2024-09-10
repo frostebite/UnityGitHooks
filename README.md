@@ -11,7 +11,7 @@
 ## What is Lefthook
 "Unity Git Hooks" requires and helps you install "Lefthook", Lefthook allows you to easily set up and manage git hooks.
 
-## Trigger Events
+## All Supported Git Event Triggers
 https://git-scm.com/docs/githooks
 
 # Getting Started
