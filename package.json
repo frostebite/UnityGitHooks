@@ -1,7 +1,7 @@
 ﻿{
-    "name": "UnityLefthook",
+    "name": "UnityGitHooks",
     "version": "1.0.0",
-    "displayName": "UnityLefthook",
-    "description": "UnityLefthook",
+    "displayName": "UnityGitHooks",
+    "description": "UnityGitHooks",
     "dependencies": {}
 }

@@ -1,15 +1,17 @@
 # Easily use git hooks in Unity projects
 
-"Unity Lefthook" comes with further utilities to handle common Unity workflow needs
-- Hook management (via Lefthook)
-- Run tests
-- Require compiling code
-- Require git plugin installed
+"Unity Git Hooks" comes with further options for common Unity workflow needs:
+- Automatically find Unity installation folder and correct project editor version
+- Open editor or immediately run jobs in the editor if already open
+- Trigger any command-line tool, Unity test or Unity editor script
+- Pre-made checks requiring compiling code to commit or push code
+- Enforce local (git plugins)
+- Tidy management of many Hooks (via Lefthook)
 
 ## What is Lefthook
-This tool "Unity Lefthook" requires and helps install "Lefthook", Lefthook allows you to easily set up and manage git hooks.
+"Unity Git Hooks" requires and helps you install "Lefthook", Lefthook allows you to easily set up and manage git hooks.
 
-## Trigger Events
+## All Supported Git Event Triggers
 https://git-scm.com/docs/githooks
 
 # Getting Started
@@ -27,7 +29,7 @@ To install a Unity package from a Git URL, follow these steps:
 
 3. **Enter the Git URL**:
    - ```
-     https://github.com/frostebite/UnityLefthook.git
+     https://github.com/frostebite/UnityGitHooks.git
      ```
 
 4. **Click Add**
@@ -35,7 +37,8 @@ To install a Unity package from a Git URL, follow these steps:
 ## Install Lefthook
 
 Warning:
-_You may need to restart your machine after installing Lefthook for Windows to recognize the installation!_
+- _You may need to restart your machine after installing Lefthook for Windows to recognize the installation!_
+- _Every project contributor will be presented with the prompt and must install Lefthook on each development machine._
 
 ### Editor (Recommended)
 
@@ -54,10 +57,10 @@ __Manual__
 
 https://github.com/evilmartians/lefthook
 
-## Configure your git hooks with Lefthook
+## Configure git hooks with Lefthook
 
-- Run ```lefthook install``` command or via editor prompt button to generate a new `lefthook.yaml`
-- Example workflow
+1) Run ```lefthook install``` command or via editor prompt button to generate a new `lefthook.yml`
+2) Example workflow
   ```
   pre-commit:
   parallel: false
@@ -67,19 +70,20 @@ https://github.com/evilmartians/lefthook
     run_unity_tests_lefthook:
       run: node ./Library/PackageCache/UnityLefthook/~js/run-unity-tests.js EditMode LefthookCore
   ```
+3) push your new `lefthook.yml` for other project contributors to git!
+
+Also
 - [See more Lefthook examples](https://github.com/evilmartians/lefthook?tab=readme-ov-file#why-lefthook)
 
-## Configuration options
+### Configuration options
 
-### init-unity-lefthook
-required, installs required NPM modules for Unity Lefthook.
+#### init-unity-lefthook
+- required, installs required NPM modules for Unity Lefthook.
 
-### run-unity-tests
-Allows you to run playmode or editmode tests with a category filter
+#### run-unity-tests
+- Allows you to run playmode or editmode tests with a category filter
 
-### apply-lfs-plugin-module
-Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
-
-
+#### apply-lfs-plugin-module
+- Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
 
 
