@@ -1,7 +1,8 @@
 ﻿{
-    "name": "UnityGitHooks",
+    "name": "com.frostebite.unitygithooks",
     "version": "1.0.0",
-    "displayName": "UnityGitHooks",
-    "description": "UnityGitHooks",
-    "dependencies": {}
+    "displayName": "Unity Git Hooks",
+    "description": "Easily manage git hooks in Unity",
+    "dependencies": {},
+    "documentationUrl": "https://github.com/frostebite/UnityGitHooks/blob/master/README.md"
 }
