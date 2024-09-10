@@ -35,7 +35,8 @@ To install a Unity package from a Git URL, follow these steps:
 ## Install Lefthook
 
 Warning:
-_You may need to restart your machine after installing Lefthook for Windows to recognize the installation!_
+- _You may need to restart your machine after installing Lefthook for Windows to recognize the installation!_
+- _Every project contributor will be presented with the prompt and must install Lefthook on each development machine._
 
 ### Editor (Recommended)
 
@@ -56,8 +57,8 @@ https://github.com/evilmartians/lefthook
 
 ## Configure your git hooks with Lefthook
 
-- Run ```lefthook install``` command or via editor prompt button to generate a new `lefthook.yaml`
-- Example workflow
+1) Run ```lefthook install``` command or via editor prompt button to generate a new `lefthook.yml`
+2) Example workflow
   ```
   pre-commit:
   parallel: false
@@ -67,6 +68,9 @@ https://github.com/evilmartians/lefthook
     run_unity_tests_lefthook:
       run: node ./Library/PackageCache/UnityLefthook/~js/run-unity-tests.js EditMode LefthookCore
   ```
+3) push your new `lefthook.yml` for other project contributors to git!
+
+Also
 - [See more Lefthook examples](https://github.com/evilmartians/lefthook?tab=readme-ov-file#why-lefthook)
 
 ## Configuration options
