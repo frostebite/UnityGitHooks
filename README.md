@@ -29,7 +29,7 @@ To install a Unity package from a Git URL, follow these steps:
 
 3. **Enter the Git URL**:
    - ```
-     https://github.com/frostebite/UnityGitHooks.git#1.0.1
+     https://github.com/frostebite/UnityGitHooks.git#1.0.2
      ```
 
 4. **Click Add**
