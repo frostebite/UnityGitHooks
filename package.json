@@ -1,8 +1,16 @@
 ﻿{
     "name": "com.frostebite.unitygithooks",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "displayName": "Unity Git Hooks",
     "description": "Easily manage git hooks in Unity",
     "dependencies": {},
-    "documentationUrl": "https://github.com/frostebite/UnityGitHooks/blob/master/README.md"
+    "documentationUrl": "https://github.com/frostebite/UnityGitHooks/blob/master/README.md",
+    "author":{
+        "name": "Mark Dugdale"
+    },
+    "keywords":[
+        "Git",
+        "Hooks",
+        "Lefthook"
+    ]
 }
