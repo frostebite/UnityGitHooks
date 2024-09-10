@@ -82,6 +82,7 @@ Also
 
 #### run-unity-tests
 - Allows you to run playmode or editmode tests with a category filter
+- You can specifically run the `EditMode` test category `LefthookCore` to enforce your project is compiling locally and the installation of this tool is correct.
 
 #### apply-lfs-plugin-module
 - Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
