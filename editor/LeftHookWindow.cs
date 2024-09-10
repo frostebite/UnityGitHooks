@@ -14,7 +14,7 @@ public class LeftHookWindow : EditorWindow {
             // run lefthook install command
             System.Diagnostics.ProcessStartInfo start = new System.Diagnostics.ProcessStartInfo();
             start.FileName = "winget";
-            start.Arguments = "install evilmartians.lefthook -e; lefthook add";
+            start.Arguments = "install evilmartians.lefthook -e";
             start.UseShellExecute = false;
             start.RedirectStandardOutput = true;
             start.RedirectStandardError = true;
