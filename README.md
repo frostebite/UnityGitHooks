@@ -12,7 +12,7 @@ This tool "Unity Lefthook" requires and helps install "Lefthook", Lefthook allow
 ## Trigger Events
 https://git-scm.com/docs/githooks
 
-# How to install
+# Getting Started
 
 ## Installing a Unity Package from a Git URL
 
@@ -26,23 +26,60 @@ To install a Unity package from a Git URL, follow these steps:
    - Select `Add package from git URL...`.
 
 3. **Enter the Git URL**:
-   - In the text box that appears, enter the Git URL of the package. For example:
-     ```
+   - ```
      https://github.com/frostebite/UnityLefthook.git
      ```
 
-4. **Click Add**:
-   - Click the `Add` button to install the package.
+4. **Click Add**
   
 ## Install Lefthook
 
-There are many compatible ways to do this.
+Warning:
+_You may need to restart your machine after installing Lefthook for Windows to recognize the installation!_
 
-Recommended:
+### Editor (Recommended)
+
 1) Add the Lefthook package and start the editor
 2) if you haven't installed Lefthook yet, you will be presented with an editor window with a button saying "Install Lefthook", press this button
 
-You can also run the powershell command
+__Powershell__
 ```
 winget install evilmartians.lefthook -e
 ```
+__NPM__
+```
+npm install lefthook --save-dev
+```
+__Manual__
+
+https://github.com/evilmartians/lefthook
+
+## Configure your git hooks with Lefthook
+
+- Run ```lefthook install``` command or via editor prompt button to generate a new `lefthook.yaml`
+- Example workflow
+  ```
+  pre-commit:
+  parallel: false
+  commands:
+    init_unity_lefthook:
+      run: node ./Library/PackageCache/UnityLefthook/~js/init-unity-lefthook.js
+    run_unity_tests_lefthook:
+      run: node ./Library/PackageCache/UnityLefthook/~js/run-unity-tests.js EditMode LefthookCore
+  ```
+- [See more Lefthook examples](https://github.com/evilmartians/lefthook?tab=readme-ov-file#why-lefthook)
+
+## Configuration options
+
+### init-unity-lefthook
+required, installs required NPM modules for Unity Lefthook.
+
+### run-unity-tests
+Allows you to run playmode or editmode tests with a category filter
+
+### apply-lfs-plugin-module
+Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
+
+
+
+
