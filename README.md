@@ -33,3 +33,16 @@ To install a Unity package from a Git URL, follow these steps:
 
 4. **Click Add**:
    - Click the `Add` button to install the package.
+  
+## Install Lefthook
+
+There are many compatible ways to do this.
+
+Recommended:
+1) Add the Lefthook package and start the editor
+2) if you haven't installed Lefthook yet, you will be presented with an editor window with a button saying "Install Lefthook", press this button
+
+You can also run the powershell command
+```
+winget install evilmartians.lefthook -e
+```
