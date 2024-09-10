@@ -1,13 +1,13 @@
 # Easily use git hooks in Unity projects
 
-"Unity Lefthook" comes with further utilities to handle common Unity workflow needs
+"Unity Git Hooks" comes with further utilities to handle common Unity workflow needs
 - Hook management (via Lefthook)
 - Run tests
 - Require compiling code
 - Require git plugin installed
 
 ## What is Lefthook
-This tool "Unity Lefthook" requires and helps install "Lefthook", Lefthook allows you to easily set up and manage git hooks.
+"Unity Git Hooks" requires and helps you install "Lefthook", Lefthook allows you to easily set up and manage git hooks.
 
 ## Trigger Events
 https://git-scm.com/docs/githooks
@@ -27,7 +27,7 @@ To install a Unity package from a Git URL, follow these steps:
 
 3. **Enter the Git URL**:
    - ```
-     https://github.com/frostebite/UnityLefthook.git
+     https://github.com/frostebite/UnityGitHooks.git
      ```
 
 4. **Click Add**
