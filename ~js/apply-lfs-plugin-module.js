@@ -7,7 +7,7 @@ repositoryformatversion = 0
 standalonetransferagent = lfs-folder
 [lfs "customtransfer.lfs-folder"]
 path = lfs-folderstore
-args = '` + process.argv[4] + `'`;
+args = '` + process.argv[3] + `'`;
 
 const configFileMain = process.argv[2];
 
