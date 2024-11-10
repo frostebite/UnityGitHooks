@@ -14,8 +14,7 @@ function GetUnityEditorPath(version) {
     let unityVersion = version;
     // set cwd
     process.cwd(__dirname);
-    // run windows CMD reg query "HKCU\SOFTWARE\Unity Technologies\Installer\Unity 6000.0.14f1" /v "Location x64"
-    exec(`cmd /c reg query "HKCU\\SOFTWARE\\Unity Technologies\\Installer\\Unity ${unityVersion}" /v "Location x64"`, 
+    exec(`cmd /c reg query "HKEY_LOCAL_MAHCINE\\SOFTWARE\\Unity Technologies\\Installer\\${unityVersion}" /v "Location x64"`, 
         options, (err, stdout, stderr) => {
         if (err || stderr) {
             console.error(`Error installing winreg: ${err}`);
