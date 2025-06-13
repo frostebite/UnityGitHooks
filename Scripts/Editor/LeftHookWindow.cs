@@ -6,7 +6,12 @@ public class LeftHookWindow : EditorWindow {
     [MenuItem("Window/GitHooks/Install Window")]
     public static void ShowWindow()
     {
-        GetWindow<LeftHookWindow>("LeftHook");
+        // Check if window already exists
+        var window = GetWindow<LeftHookWindow>("LeftHook");
+        if (window != null)
+        {
+            window.Focus();
+        }
     }
     // show ongui
     private void OnGUI()
