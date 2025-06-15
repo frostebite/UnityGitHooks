@@ -58,9 +58,7 @@ public class UnityLefthook
             // ignored
         }
 
-        Debug.Log("Lefthook is not installed. Please install lefthook by running \n'winget install evilmartians.lefthook -e; lefthook add' in terminal");
-        // open lefthook window
-        LeftHookWindow.ShowWindow();
+        Debug.Log("Lefthook is not installed. You can install it by going to Window > GitHooks > Install Window");
     }
     
 
