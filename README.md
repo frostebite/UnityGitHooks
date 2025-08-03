@@ -84,8 +84,13 @@ Also
 - Allows you to run playmode or editmode tests with an optional `--category` filter
 - Override the detected Unity editor path using `--unityPath <path>` when needed
 - You can specifically run the `EditMode` test category `LefthookCore` to enforce your project is compiling locally and the installation of this tool is correct.
+- If your Unity instance uses a custom port for the Git hook listener, supply `--port <port>` or set the `UNITY_GITHOOKS_PORT` environment variable so the script can reach it.
 
 #### apply-lfs-plugin-module
 - Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
 
 
+
+### Changing the listener port
+
+By default Unity Git Hooks listens on port `8080`. If this port is unavailable, open Unity's Preferences (Edit > Preferences on Windows or Unity > Preferences on macOS), select **Unity Git Hooks**, and adjust the **Port** value. When invoking `run-unity-tests.js`, ensure the same port is used by passing `--port <port>` or setting the `UNITY_GITHOOKS_PORT` environment variable.

@@ -17,7 +17,8 @@ public class GitHookHttpListener : ICallbacks
     public void Start()
     {
         listener = new HttpListener();
-        listener.Prefixes.Add("http://localhost:8080/");
+        var port = GitHookPreferences.Port;
+        listener.Prefixes.Add($"http://localhost:{port}/");
         listener.Start();
 
         cancellationTokenSource = new CancellationTokenSource();
