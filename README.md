@@ -63,12 +63,12 @@ https://github.com/evilmartians/lefthook
 2) Example workflow
   ```
   pre-commit:
-  parallel: false
-  commands:
-    init_unity_lefthook:
-      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/init-unity-lefthook.js
-    run_unity_tests_lefthook:
-      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/run-unity-tests.js EditMode LefthookCore
+    parallel: false
+    commands:
+      init_unity_lefthook:
+        run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/init-unity-lefthook.js
+      run_unity_tests_lefthook:
+        run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/run-unity-tests.js EditMode --category LefthookCore
   ```
 3) push your new `lefthook.yml` for other project contributors to git!
 
@@ -81,7 +81,8 @@ Also
 - required, installs required NPM modules for Unity Lefthook.
 
 #### run-unity-tests
-- Allows you to run playmode or editmode tests with a category filter
+- Allows you to run playmode or editmode tests with an optional `--category` filter
+- Override the detected Unity editor path using `--unityPath <path>` when needed
 - You can specifically run the `EditMode` test category `LefthookCore` to enforce your project is compiling locally and the installation of this tool is correct.
 
 #### apply-lfs-plugin-module
