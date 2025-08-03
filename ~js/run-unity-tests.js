@@ -6,6 +6,7 @@ const rawArgs = process.argv.slice(2);
 const testMode = rawArgs[0];
 let category = "All";
 let unityPathArg = null;
+let port = process.env.UNITY_GITHOOKS_PORT ? parseInt(process.env.UNITY_GITHOOKS_PORT, 10) : 8080;
 
 for (let i = 1; i < rawArgs.length; i++) {
     switch (rawArgs[i]) {
@@ -18,6 +19,12 @@ for (let i = 1; i < rawArgs.length; i++) {
         case "--unityPath":
             if (i + 1 < rawArgs.length) {
                 unityPathArg = rawArgs[i + 1];
+                i++;
+            }
+            break;
+        case "--port":
+            if (i + 1 < rawArgs.length) {
+                port = parseInt(rawArgs[i + 1], 10);
                 i++;
             }
             break;
@@ -97,7 +104,7 @@ function RunUnity(unityPath, projectPath) {
         const http = require('http');
         const options = {
             hostname: 'localhost',
-            port: 8080,
+            port: port,
             headers: {}
         };
 
