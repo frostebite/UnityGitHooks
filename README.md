@@ -66,10 +66,11 @@ https://github.com/evilmartians/lefthook
     parallel: false
     commands:
       init_unity_lefthook:
-        run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/init-unity-lefthook.js
+        run: "node ./Library/PackageCache/com.frostebite.unitygithooks@*/~js/init-unity-lefthook.js"
       run_unity_tests_lefthook:
-        run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/run-unity-tests.js EditMode --category LefthookCore
+        run: "node ./Library/PackageCache/com.frostebite.unitygithooks@*/~js/run-unity-tests.js EditMode --category LefthookCore"
   ```
+  *The `*` wildcard resolves the package's versioned directory so the path remains valid when the package updates.*
 3) push your new `lefthook.yml` for other project contributors to git!
 
 Also
