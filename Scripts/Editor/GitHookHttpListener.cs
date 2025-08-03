@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Threading;
 using UnityEditor.TestTools.TestRunner.Api;
@@ -11,6 +11,7 @@ public class GitHookHttpListener : ICallbacks
     private Thread listenerThread;
     private TestRunnerApi testRunnerApi;
     private HttpListenerContext context;
+    private readonly object streamLock = new object();
 
     public void Start()
     {
@@ -28,7 +29,7 @@ public class GitHookHttpListener : ICallbacks
         {
             context = listener.GetContext();
             Debug.Log("Command executed!");
-            
+
             // check repoPath header log if exists
             if (context.Request.Headers.Contains("repoPath"))
             {
@@ -38,13 +39,13 @@ public class GitHookHttpListener : ICallbacks
             {
                 Debug.Log(context.Request.Headers["testCategory"]);
             }
-            
+
             // run unity test
             // run on main thread
             UnityLefthook.Enqueue(() => UnityLefthook.Listener.RunGitHook());
         }
     }
-    
+
     public void RunGitHook() {
         Debug.Log("Running tests");
         testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
@@ -53,26 +54,30 @@ public class GitHookHttpListener : ICallbacks
         var categoryNames = context.Request.Headers.Contains("testCategory")
             ? context.Request.Headers["testCategory"].Split(",")
             : Array.Empty<string>();
-        
+
         // log it
         Debug.Log($"Test mode: {mode}");
         Debug.Log($"Test category: {string.Join(",", categoryNames)}");
-        
+
         var filter = new Filter
         {
             testMode = mode == "EditMode" ? TestMode.EditMode : TestMode.PlayMode,
             categoryNames = categoryNames
         };
-        
+
         testRunnerApi.RegisterCallbacks(this);
         testRunnerApi.Execute(new ExecutionSettings(filter));
-        
+
         Application.logMessageReceived += ApplicationOnlogMessageReceived;
     }
+
     private void ApplicationOnlogMessageReceived(string condition, string stacktrace, LogType type)
     {
         var buffer = System.Text.Encoding.UTF8.GetBytes($"{condition} {stacktrace} {type}\n");
-        WriteToStream(buffer);
+        lock (streamLock)
+        {
+            WriteToStream(buffer);
+        }
     }
 
     public void RunFinished(ITestResultAdaptor result)
@@ -83,18 +88,26 @@ public class GitHookHttpListener : ICallbacks
 
         var resultBuffer = System.Text.Encoding.UTF8.GetBytes($"Passed: {result.PassCount}, Failed: {result.FailCount}\n");
         Debug.Log($"Passed: {result.PassCount}, Failed: {result.FailCount}");
-        WriteToStream(resultBuffer);
-        if (result.FailCount > 0)
+        lock (streamLock)
         {
-            WriteToStream(System.Text.Encoding.UTF8.GetBytes("Tests failed\n"));
-        }
+            WriteToStream(resultBuffer);
+            if (result.FailCount > 0)
+            {
+                WriteToStream(System.Text.Encoding.UTF8.GetBytes("Tests failed\n"));
+            }
 
-        // Optionally close the stream here if no more data will be sent
-        context.Response.OutputStream.Close();
+            // Optionally close the stream here if no more data will be sent
+            context.Response.OutputStream.Close();
+        }
     }
 
     private void WriteToStream(byte[] buffer)
     {
+        if (!context.Response.OutputStream.CanWrite)
+        {
+            return;
+        }
+
         context.Response.OutputStream.Write(buffer, 0, buffer.Length);
         context.Response.OutputStream.Flush(); // Ensure data is sent immediately
     }
@@ -115,3 +128,4 @@ public class GitHookHttpListener : ICallbacks
     public void TestFinished(ITestResultAdaptor result) {
     }
 }
+
