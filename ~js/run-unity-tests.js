@@ -12,13 +12,16 @@ function GetUnityEditorPath(version) {
     version = version.trim();
     console.log('Unity version:', version);
     let unityVersion = version;
-    // set cwd
-    process.cwd(__dirname);
-    exec(`cmd /c reg query "HKEY_LOCAL_MAHCINE\\SOFTWARE\\Unity Technologies\\Installer\\${unityVersion}" /v "Location x64"`, 
+    // set cwd so child processes run in this directory
+    process.chdir(__dirname);
+    exec(`cmd /c reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\Unity Technologies\\Installer\\${unityVersion}" /v "Location x64"`,
         options, (err, stdout, stderr) => {
-        if (err || stderr) {
-            console.error(`Error installing winreg: ${err}`);
-            console.error(`stderr: ${stderr}`);
+        if (err) {
+            console.error(`Failed to query Unity Editor path from registry: ${err.message}`);
+            return;
+        }
+        if (stderr) {
+            console.error(`Registry query stderr: ${stderr}`);
             return;
         }
 
