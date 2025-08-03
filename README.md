@@ -63,13 +63,14 @@ https://github.com/evilmartians/lefthook
 2) Example workflow
   ```
   pre-commit:
-  parallel: false
-  commands:
-    init_unity_lefthook:
-      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/init-unity-lefthook.js
-    run_unity_tests_lefthook:
-      run: node ./Library/PackageCache/com.frostebite.unitygithooks@0037422a62/~js/run-unity-tests.js EditMode LefthookCore
+    parallel: false
+    commands:
+      init_unity_lefthook:
+        run: "node ./Library/PackageCache/com.frostebite.unitygithooks@*/~js/init-unity-lefthook.js"
+      run_unity_tests_lefthook:
+        run: "node ./Library/PackageCache/com.frostebite.unitygithooks@*/~js/run-unity-tests.js EditMode --category LefthookCore"
   ```
+  *The `*` wildcard resolves the package's versioned directory so the path remains valid when the package updates.*
 3) push your new `lefthook.yml` for other project contributors to git!
 
 Also
@@ -81,8 +82,10 @@ Also
 - required, installs required NPM modules for Unity Lefthook.
 
 #### run-unity-tests
-- Allows you to run playmode or editmode tests with a category filter
+- Allows you to run playmode or editmode tests with an optional `--category` filter
+- Override the detected Unity editor path using `--unityPath <path>` when needed
 - You can specifically run the `EditMode` test category `LefthookCore` to enforce your project is compiling locally and the installation of this tool is correct.
+- If your Unity instance uses a custom port for the Git hook listener, supply `--port <port>` or set the `UNITY_GITHOOKS_PORT` environment variable so the script can reach it.
 
 #### apply-lfs-plugin-module
 - Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
@@ -100,3 +103,7 @@ pre-commit:
     notify_backend:
       run: node ./Library/PackageCache/com.frostebite.unitygithooks@VERSION/~js/notify-git-events.js pre-commit
 ```
+
+### Changing the listener port
+
+By default Unity Git Hooks listens on port `8080`. If this port is unavailable, open Unity's Preferences (Edit > Preferences on Windows or Unity > Preferences on macOS), select **Unity Git Hooks**, and adjust the **Port** value. When invoking `run-unity-tests.js`, ensure the same port is used by passing `--port <port>` or setting the `UNITY_GITHOOKS_PORT` environment variable.

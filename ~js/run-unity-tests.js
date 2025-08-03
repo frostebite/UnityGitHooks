@@ -1,8 +1,40 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const {exec} = require("child_process");
 
+// Parse named arguments
+const rawArgs = process.argv.slice(2);
+const testMode = rawArgs[0];
+let category = "All";
+let unityPathArg = null;
+let port = process.env.UNITY_GITHOOKS_PORT ? parseInt(process.env.UNITY_GITHOOKS_PORT, 10) : 8080;
+
+for (let i = 1; i < rawArgs.length; i++) {
+    switch (rawArgs[i]) {
+        case "--category":
+            if (i + 1 < rawArgs.length) {
+                category = rawArgs[i + 1];
+                i++;
+            }
+            break;
+        case "--unityPath":
+            if (i + 1 < rawArgs.length) {
+                unityPathArg = rawArgs[i + 1];
+                i++;
+            }
+            break;
+        case "--port":
+            if (i + 1 < rawArgs.length) {
+                port = parseInt(rawArgs[i + 1], 10);
+                i++;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
 function GetUnityEditorPath(version) {
-    
+
     // install winreg npm
     // install winreg in the script dir
     var options = {
@@ -26,7 +58,7 @@ function GetUnityEditorPath(version) {
         }
 
         let unityPath = null;
-        
+
         // parse stdout
         let lines = stdout.split('\n');
         lines.forEach(item => {
@@ -44,9 +76,9 @@ function GetUnityEditorPath(version) {
             }
         }
         );
-        
-        if (process.argv[3] != null && unityPath == null) {
-            unityPath = process.argv[3];
+
+        if (unityPathArg != null && unityPath == null) {
+            unityPath = unityPathArg;
             console.log('Using Unity Editor path from command line: ', unityPath);
         }
 
@@ -59,38 +91,32 @@ function GetUnityEditorPath(version) {
         RunUnity(unityPath, '.');
         return;
     });
-    
-}
 
+}
 
 function RunUnity(unityPath, projectPath) {
     console.log('Running Unity: ', unityPath);
-    
+
     // handle path with spaces
     unityPath = `"${unityPath}"`;
-    
+
         // http get http://localhost:8080/ and log results
         const http = require('http');
         const options = {
             hostname: 'localhost',
-            port: 8080,
+            port: port,
             headers: {}
         };
 
-// Add headers including repo path
+    // Add headers including repo path
     options.headers['repoPath'] = projectPath;
-    options.headers['testMode'] = process.argv[2];
-
-    let category = "All";
-    if (process.argv.length > 3) {
-        category = process.argv[3];
-    }
+    options.headers['testMode'] = testMode;
     options.headers['testCategory'] = category;
-        
-        
+
+
         const req = http.get(options, (res) => {
             console.log(`statusCode: ${res.statusCode}`);
-            
+
             res.on('data', (d) => {
                 process.stdout.write("data: "+ d);
                 if(d.includes('Tests failed')) {
@@ -101,10 +127,9 @@ function RunUnity(unityPath, projectPath) {
         });
         req.on('error', (error) => {
             // run unity with command line args batchmode, nographics, run tests
-            exec(`${unityPath} -projectPath \"${projectPath}\" -runTests -testPlatform ${process.argv[2]} -logFile \"-\"`, (err, stdout, stderr) => {
+            exec(`${unityPath} -projectPath \"${projectPath}\" -runTests -testPlatform ${testMode} -logFile \"-\"`, (err, stdout, stderr) => {
                 if (err) {
                     console.error(`Error running Unity: ${err}`);
-
 
                     return;
                 }
@@ -112,7 +137,7 @@ function RunUnity(unityPath, projectPath) {
                 console.log(`stderr: ${stderr}`);
             });
         });
-    
+
 }
 
 // read unity project version
@@ -122,7 +147,6 @@ fs.readFile('ProjectSettings/ProjectVersion.txt', 'utf8', (err, data) => {
         return;
     }
 
-    
     // get m_EditorVersion
     let lines = data.split('\n');
     for (let line of lines) {
@@ -132,5 +156,5 @@ fs.readFile('ProjectSettings/ProjectVersion.txt', 'utf8', (err, data) => {
             GetUnityEditorPath(version);
         }
     }
-    
+
 });
