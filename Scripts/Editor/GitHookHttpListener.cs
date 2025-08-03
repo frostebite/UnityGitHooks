@@ -11,6 +11,7 @@ public class GitHookHttpListener : ICallbacks
     private Thread listenerThread;
     private TestRunnerApi testRunnerApi;
     private HttpListenerContext context;
+    private CancellationTokenSource cancellationTokenSource;
     private readonly object streamLock = new object();
 
     public void Start()
@@ -19,14 +20,17 @@ public class GitHookHttpListener : ICallbacks
         listener.Prefixes.Add("http://localhost:8080/");
         listener.Start();
 
-        listenerThread = new Thread(new ThreadStart(ListenForCommands));
+        cancellationTokenSource = new CancellationTokenSource();
+
+        listenerThread = new Thread(() => ListenForCommands(cancellationTokenSource.Token));
         listenerThread.Start();
     }
 
-    void ListenForCommands()
+    void ListenForCommands(CancellationToken token)
     {
-        while (listener.IsListening)
+        try
         {
+            while (listener.IsListening && !token.IsCancellationRequested)
             context = listener.GetContext();
             Debug.Log("Command executed!");
 
@@ -37,8 +41,27 @@ public class GitHookHttpListener : ICallbacks
             }
             if (context.Request.Headers.Contains("testCategory"))
             {
-                Debug.Log(context.Request.Headers["testCategory"]);
+                context = listener.GetContext();
+                Debug.Log("Command executed!");
+
+                // check repoPath header log if exists
+                if (context.Request.Headers.Contains("repoPath"))
+                {
+                    Debug.Log(context.Request.Headers["repoPath"]);
+                }
+                if (context.Request.Headers.Contains("testCategory"))
+                {
+                    Debug.Log(context.Request.Headers["testCategory"]);
+                }
+
+                // run unity test
+                // run on main thread
+                UnityLefthook.Enqueue(() => UnityLefthook.Listener.RunGitHook());
             }
+        }
+        catch (ObjectDisposedException)
+        {
+            // listener disposed
 
             // run unity test
             // run on main thread
@@ -114,9 +137,15 @@ public class GitHookHttpListener : ICallbacks
 
     public void OnApplicationQuit()
     {
-        listener.Stop();
-        listenerThread.Abort();
-        testRunnerApi.UnregisterCallbacks(this);
+        cancellationTokenSource?.Cancel();
+        listener?.Stop();
+        listenerThread?.Join();
+        listener?.Close();
+
+        testRunnerApi?.UnregisterCallbacks(this);
+        Application.logMessageReceived -= ApplicationOnlogMessageReceived;
+
+        cancellationTokenSource?.Dispose();
     }
 
     public void RunStarted(ITestAdaptor testsToRun) {
