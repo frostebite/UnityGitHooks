@@ -1,8 +1,14 @@
-﻿using UnityEditor;
+using System.Diagnostics;
+using System.Text;
+using System.Threading.Tasks;
+using UnityEditor;
 using UnityEngine;
 
-public class LeftHookWindow : EditorWindow {
-    
+public class LeftHookWindow : EditorWindow
+{
+    private bool isRunning;
+    private string statusMessage = string.Empty;
+
     [MenuItem("Window/GitHooks/Install Window")]
     public static void ShowWindow()
     {
@@ -13,50 +19,102 @@ public class LeftHookWindow : EditorWindow {
             window.Focus();
         }
     }
-    // show ongui
+
     private void OnGUI()
     {
+        EditorGUILayout.LabelField(statusMessage);
+
+        EditorGUI.BeginDisabledGroup(isRunning);
         if (GUILayout.Button("Install Lefthook"))
         {
-            // run lefthook install command
-            System.Diagnostics.ProcessStartInfo start = new System.Diagnostics.ProcessStartInfo();
-            start.FileName = "npm";
-            start.Arguments = "install lefthook --save-dev";
-            start.UseShellExecute = false;
-            start.RedirectStandardOutput = true;
-            start.RedirectStandardError = true;
-            start.CreateNoWindow = true;
-            System.Diagnostics.Process process = System.Diagnostics.Process.Start(start);
-            process.WaitForExit();
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            Debug.Log(output);
-            Debug.Log(error);
-            Close();
+            RunCommand("npm", "install lefthook --save-dev", closeOnFinish: true);
         }
-        
-        // lefthook install button
-        // run lefthook install command
+
         if (GUILayout.Button("Install Lefthook to this repo"))
         {
-            System.Diagnostics.ProcessStartInfo start = new System.Diagnostics.ProcessStartInfo();
-            start.FileName = "lefthook";
-            start.Arguments = "install";
-            start.UseShellExecute = false;
-            start.RedirectStandardOutput = true;
-            start.RedirectStandardError = true;
-            start.CreateNoWindow = true;
-            System.Diagnostics.Process process = System.Diagnostics.Process.Start(start);
-            process.WaitForExit();
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            Debug.Log(output);
-            Debug.Log(error);
+            RunCommand("lefthook", "install");
         }
-        
+
         if (GUILayout.Button("Close"))
         {
             Close();
         }
+        EditorGUI.EndDisabledGroup();
+    }
+
+    private async void RunCommand(string fileName, string arguments, bool closeOnFinish = false)
+    {
+        isRunning = true;
+        statusMessage = $"Running {fileName} {arguments}...";
+        Repaint();
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            var output = new StringBuilder();
+            var error = new StringBuilder();
+
+            await Task.Run(() =>
+            {
+                using (var process = new Process { StartInfo = startInfo })
+                {
+                    process.OutputDataReceived += (s, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            output.AppendLine(e.Data);
+                        }
+                    };
+                    process.ErrorDataReceived += (s, e) =>
+                    {
+                        if (e.Data != null)
+                        {
+                            error.AppendLine(e.Data);
+                        }
+                    };
+
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+                    process.WaitForExit();
+                }
+            });
+
+            if (output.Length > 0)
+            {
+                Debug.Log(output.ToString());
+            }
+
+            if (error.Length > 0)
+            {
+                Debug.LogError(error.ToString());
+            }
+
+            statusMessage = "Command completed.";
+            if (closeOnFinish)
+            {
+                Close();
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError(ex.Message);
+            statusMessage = "Command failed.";
+        }
+        finally
+        {
+            isRunning = false;
+            Repaint();
+        }
     }
 }
+
