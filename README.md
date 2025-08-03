@@ -88,3 +88,15 @@ Also
 - Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
 
 
+#### notify-git-events
+- Sends git event details to a configurable backend API.
+- Configure the API URL and authentication token via `Window > GitHooks > API Config` or environment variables `GIT_HOOKS_API_URL` and `GITHUB_TOKEN`.
+- If no configuration is found, the hook skips without error.
+
+Example `lefthook.yml` usage:
+```
+pre-commit:
+  commands:
+    notify_backend:
+      run: node ./Library/PackageCache/com.frostebite.unitygithooks@VERSION/~js/notify-git-events.js pre-commit
+```
