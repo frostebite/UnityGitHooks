@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 public class LeftHookWindow : EditorWindow
 {
