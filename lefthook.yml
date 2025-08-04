@@ -1,0 +1,4 @@
+pre-commit:
+  commands:
+    unity-tests:
+      run: echo "Run Unity tests"
