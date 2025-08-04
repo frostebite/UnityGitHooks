@@ -14,6 +14,8 @@ public class GitHookHttpListener : ICallbacks
     private CancellationTokenSource cancellationTokenSource;
     private readonly object streamLock = new object();
 
+    public bool IsRunning => listener != null && listener.IsListening;
+
     public void Start()
     {
         listener = new HttpListener();
@@ -25,6 +27,15 @@ public class GitHookHttpListener : ICallbacks
 
         listenerThread = new Thread(() => ListenForCommands(cancellationTokenSource.Token));
         listenerThread.Start();
+    }
+
+    public void Stop()
+    {
+        cancellationTokenSource?.Cancel();
+        listener?.Stop();
+        listenerThread?.Join();
+        listener?.Close();
+        listener = null;
     }
 
     void ListenForCommands(CancellationToken token)
@@ -138,14 +149,9 @@ public class GitHookHttpListener : ICallbacks
 
     public void OnApplicationQuit()
     {
-        cancellationTokenSource?.Cancel();
-        listener?.Stop();
-        listenerThread?.Join();
-        listener?.Close();
-
+        Stop();
         testRunnerApi?.UnregisterCallbacks(this);
         Application.logMessageReceived -= ApplicationOnlogMessageReceived;
-
         cancellationTokenSource?.Dispose();
     }
 
