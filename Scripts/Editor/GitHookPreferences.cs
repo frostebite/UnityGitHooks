@@ -1,6 +1,6 @@
 using UnityEditor;
 
-static class GitHookPreferences
+public static class GitHookPreferences
 {
     private const string PortKey = "UnityGitHooks_Port";
 
