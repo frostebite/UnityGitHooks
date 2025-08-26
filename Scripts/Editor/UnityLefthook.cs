@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using UnityEditor;
 using NUnit.Framework.Interfaces;
@@ -14,27 +15,57 @@ public class UnityLefthook
     [UnityEditor.InitializeOnLoadMethod]
     private static void Initialize()
     {
-        // if headless mode ignore
-        if (Application.isBatchMode)
+        // if headless mode, CI, or any automated environment ignore
+        if (Application.isBatchMode || IsRunningInCI() || IsHeadlessEnvironment())
         {
+            Debug.Log("[UnityLefthook] Skipping initialization in batch/CI/headless mode");
             return;
         }
-        InitalizeLefthook();
-        if (_listener != null)
+        
+        try
         {
-            _listener.OnApplicationQuit();
-            _listener = null;
+            InitalizeLefthook();
+            if (_listener != null)
+            {
+                _listener.OnApplicationQuit();
+                _listener = null;
+            }
+            // start http listener
+            _listener = new GitHookHttpListener();
+            // handle cleanup
+            EditorApplication.quitting += () => _listener.OnApplicationQuit();
+            _listener.Start();
+            EditorApplication.update += Update;
         }
-        // start http listener
-        _listener = new GitHookHttpListener();
-        // handle cleanup
-        EditorApplication.quitting += () => _listener.OnApplicationQuit();
-        _listener.Start();
-        EditorApplication.update += Update;
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[UnityLefthook] Failed to initialize: {ex.Message}");
+        }
     }
+    private static bool IsRunningInCI()
+    {
+        // Check common CI environment variables
+        var ciVariables = new[] { "CI", "GITHUB_ACTIONS", "JENKINS_URL", "BUILDKITE", "CIRCLECI", "TRAVIS", "APPVEYOR" };
+        foreach (var variable in ciVariables)
+        {
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(variable)))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private static bool IsHeadlessEnvironment()
+    {
+        // Additional checks for headless/automated environments
+        return SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null ||
+               Environment.GetCommandLineArgs().Any(arg => arg.Contains("-batchmode") || arg.Contains("-nographics"));
+    }
+    
     private static void InitalizeLefthook()
     {
-        // run lefthook command
+        // run lefthook command with timeout to prevent hanging
         System.Diagnostics.ProcessStartInfo start = new System.Diagnostics.ProcessStartInfo();
         start.FileName = "lefthook";
         start.Arguments = "version";
@@ -44,21 +75,31 @@ public class UnityLefthook
         start.CreateNoWindow = true;
         
         try {
-            System.Diagnostics.Process process = System.Diagnostics.Process.Start(start);
-            process.WaitForExit();
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            Debug.Log(output);
-            // if error is not empty or exit code is not 0, log install lefthook message
-            if (string.IsNullOrEmpty(error) && process.ExitCode == 0)
+            using (System.Diagnostics.Process process = System.Diagnostics.Process.Start(start))
             {
-                return;
+                // Add timeout to prevent hanging in CI
+                if (process.WaitForExit(5000)) // 5 second timeout
+                {
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+                    Debug.Log($"[UnityLefthook] Version check: {output}");
+                    // if error is not empty or exit code is not 0, log install lefthook message
+                    if (string.IsNullOrEmpty(error) && process.ExitCode == 0)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[UnityLefthook] Lefthook version check timed out");
+                    process.Kill();
+                }
             }
-        } catch {
-            // ignored
+        } catch (Exception ex) {
+            Debug.LogWarning($"[UnityLefthook] Failed to check lefthook version: {ex.Message}");
         }
 
-        Debug.Log("Lefthook is not installed. You can install it by going to Window > GitHooks > Install Window");
+        Debug.Log("[UnityLefthook] Lefthook is not installed. You can install it by going to Window > GitHooks > Install Window");
     }
     
 
