@@ -16,7 +16,7 @@ public class UnityLefthook
     private static void Initialize()
     {
         // if headless mode, CI, or any automated environment ignore
-        if (Application.isBatchMode || IsRunningInCI() || IsHeadlessEnvironment())
+        if (Application.isBatchMode || IsRunningInCI() || IsHeadlessEnvironment() || IsExplicitlyDisabled())
         {
             Debug.Log("[UnityLefthook] Skipping initialization in batch/CI/headless mode");
             return;
@@ -41,6 +41,12 @@ public class UnityLefthook
         {
             Debug.LogWarning($"[UnityLefthook] Failed to initialize: {ex.Message}");
         }
+    }
+    private static bool IsExplicitlyDisabled()
+    {
+        // Honor explicit environment switch to disable Lefthook initialization
+        var disable = Environment.GetEnvironmentVariable("UNITY_DISABLE_LEFTHOOK");
+        return !string.IsNullOrEmpty(disable) && (disable == "1" || disable.Equals("true", StringComparison.OrdinalIgnoreCase));
     }
     private static bool IsRunningInCI()
     {
