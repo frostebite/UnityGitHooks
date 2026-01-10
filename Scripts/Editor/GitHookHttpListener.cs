@@ -3,7 +3,6 @@ using System.Net;
 using System.Threading;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
-using WebSocketSharp;
 
 public class GitHookHttpListener : ICallbacks
 {
@@ -43,56 +42,78 @@ public class GitHookHttpListener : ICallbacks
         try
         {
             while (listener.IsListening && !token.IsCancellationRequested)
-            context = listener.GetContext();
-            Debug.Log("Command executed!");
-
-            // check repoPath header log if exists
-            if (context.Request.Headers.Contains("repoPath"))
-            {
-                Debug.Log(context.Request.Headers["repoPath"]);
-            }
-            if (context.Request.Headers.Contains("testCategory"))
             {
                 context = listener.GetContext();
-                Debug.Log("Command executed!");
+                Debug.Log("[GitHookHttpListener] Command received!");
 
                 // check repoPath header log if exists
-                if (context.Request.Headers.Contains("repoPath"))
+                string repoPathHeader = context.Request.Headers["repoPath"];
+                if (!string.IsNullOrEmpty(repoPathHeader))
                 {
-                    Debug.Log(context.Request.Headers["repoPath"]);
+                    Debug.Log($"[GitHookHttpListener] Repo path: {repoPathHeader}");
                 }
-                if (context.Request.Headers.Contains("testCategory"))
+                string testCategoryHeader = context.Request.Headers["testCategory"];
+                if (!string.IsNullOrEmpty(testCategoryHeader))
                 {
-                    Debug.Log(context.Request.Headers["testCategory"]);
+                    Debug.Log($"[GitHookHttpListener] Test category: {testCategoryHeader}");
+                }
+                string testModeHeader = context.Request.Headers["testMode"];
+                if (!string.IsNullOrEmpty(testModeHeader))
+                {
+                    Debug.Log($"[GitHookHttpListener] Test mode: {testModeHeader}");
                 }
 
-                // run unity test
-                // run on main thread
+                // Initialize response
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "text/plain; charset=utf-8";
+
+                // run unity test on main thread
                 UnityLefthook.Enqueue(() => UnityLefthook.Listener.RunGitHook());
             }
         }
         catch (ObjectDisposedException)
         {
-            // listener disposed
-
-            // run unity test
-            // run on main thread
-            UnityLefthook.Enqueue(() => UnityLefthook.Listener.RunGitHook());
+            // listener disposed, this is expected when stopping
+            Debug.Log("[GitHookHttpListener] Listener disposed");
+        }
+        catch (HttpListenerException ex)
+        {
+            // Handle HTTP listener exceptions (e.g., when stopping)
+            if (listener.IsListening)
+            {
+                Debug.LogWarning($"[GitHookHttpListener] HTTP listener exception: {ex.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GitHookHttpListener] Unexpected error in listener: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
     public void RunGitHook() {
-        Debug.Log("Running tests");
+        if (context == null)
+        {
+            Debug.LogError("[GitHookHttpListener] Cannot run git hook: context is null");
+            return;
+        }
+
+        Debug.Log("[GitHookHttpListener] Running tests");
         testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
 
         var mode = context.Request.Headers["testMode"];
-        var categoryNames = context.Request.Headers.Contains("testCategory")
-            ? context.Request.Headers["testCategory"].Split(",")
+        if (string.IsNullOrEmpty(mode))
+        {
+            mode = "EditMode";
+        }
+
+        var categoryHeader = context.Request.Headers["testCategory"];
+        var categoryNames = !string.IsNullOrEmpty(categoryHeader)
+            ? categoryHeader.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
             : Array.Empty<string>();
 
         // log it
-        Debug.Log($"Test mode: {mode}");
-        Debug.Log($"Test category: {string.Join(",", categoryNames)}");
+        Debug.Log($"[GitHookHttpListener] Test mode: {mode}");
+        Debug.Log($"[GitHookHttpListener] Test category: {string.Join(",", categoryNames)}");
 
         var filter = new Filter
         {
@@ -117,34 +138,58 @@ public class GitHookHttpListener : ICallbacks
 
     public void RunFinished(ITestResultAdaptor result)
     {
-        Debug.Log("Tests finished");
+        Debug.Log($"[GitHookHttpListener] Tests finished - Passed: {result.PassCount}, Failed: {result.FailCount}");
         testRunnerApi.UnregisterCallbacks(this);
         Application.logMessageReceived -= ApplicationOnlogMessageReceived;
 
+        if (context == null || context.Response == null)
+        {
+            Debug.LogWarning("[GitHookHttpListener] Cannot write test results: context or response is null");
+            return;
+        }
+
         var resultBuffer = System.Text.Encoding.UTF8.GetBytes($"Passed: {result.PassCount}, Failed: {result.FailCount}\n");
-        Debug.Log($"Passed: {result.PassCount}, Failed: {result.FailCount}");
         lock (streamLock)
         {
-            WriteToStream(resultBuffer);
-            if (result.FailCount > 0)
+            try
             {
-                WriteToStream(System.Text.Encoding.UTF8.GetBytes("Tests failed\n"));
-            }
+                WriteToStream(resultBuffer);
+                if (result.FailCount > 0)
+                {
+                    WriteToStream(System.Text.Encoding.UTF8.GetBytes("Tests failed\n"));
+                    context.Response.StatusCode = 500;
+                }
+                else
+                {
+                    context.Response.StatusCode = 200;
+                }
 
-            // Optionally close the stream here if no more data will be sent
-            context.Response.OutputStream.Close();
+                context.Response.OutputStream.Close();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GitHookHttpListener] Error writing test results: {ex.Message}");
+            }
         }
     }
 
     private void WriteToStream(byte[] buffer)
     {
-        if (!context.Response.OutputStream.CanWrite)
+        if (context?.Response?.OutputStream == null || !context.Response.OutputStream.CanWrite)
         {
+            Debug.LogWarning("[GitHookHttpListener] Cannot write to stream: context or response stream is null or not writable");
             return;
         }
 
-        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-        context.Response.OutputStream.Flush(); // Ensure data is sent immediately
+        try
+        {
+            context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+            context.Response.OutputStream.Flush(); // Ensure data is sent immediately
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GitHookHttpListener] Error writing to stream: {ex.Message}");
+        }
     }
 
     public void OnApplicationQuit()

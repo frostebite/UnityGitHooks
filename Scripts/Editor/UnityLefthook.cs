@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using UnityEditor;
-using NUnit.Framework.Interfaces;
 using UnityEngine;
 
 public class UnityLefthook
@@ -11,7 +9,7 @@ public class UnityLefthook
     public static GitHookHttpListener Listener => _listener;
     private static GitHookHttpListener _listener;
     private static readonly Queue<Action> _executionQueue = new Queue<Action>();
-    // when unity editor initalizes, initalize UnityLefthook
+    // when unity editor initializes, initialize UnityLefthook
     [UnityEditor.InitializeOnLoadMethod]
     private static void Initialize()
     {
@@ -24,7 +22,7 @@ public class UnityLefthook
         
         try
         {
-            InitalizeLefthook();
+            InitializeLefthook();
             if (_listener != null)
             {
                 _listener.OnApplicationQuit();
@@ -63,7 +61,7 @@ public class UnityLefthook
                Environment.GetCommandLineArgs().Any(arg => arg.Contains("-batchmode") || arg.Contains("-nographics"));
     }
     
-    private static void InitalizeLefthook()
+    private static void InitializeLefthook()
     {
         // run lefthook command with timeout to prevent hanging
         System.Diagnostics.ProcessStartInfo start = new System.Diagnostics.ProcessStartInfo();

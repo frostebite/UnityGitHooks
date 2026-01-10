@@ -111,31 +111,74 @@ function RunUnity(unityPath, projectPath) {
     // Add headers including repo path
     options.headers['repoPath'] = projectPath;
     options.headers['testMode'] = testMode;
+    // Category can be comma-separated for multiple categories (e.g., "Category1,Category2")
+    // Unity Test Runner will match tests that have ALL specified categories
     options.headers['testCategory'] = category;
 
 
         const req = http.get(options, (res) => {
             console.log(`statusCode: ${res.statusCode}`);
 
+            let dataBuffer = '';
+            let exitCode = 0;
+
             res.on('data', (d) => {
-                process.stdout.write("data: "+ d);
-                if(d.includes('Tests failed')) {
-                    console.error('Tests failed');
-                    process.exit(1);
+                const data = d.toString();
+                process.stdout.write(data);
+                dataBuffer += data;
+                
+                if (dataBuffer.includes('Tests failed') || res.statusCode >= 400) {
+                    exitCode = 1;
                 }
+            });
+
+            res.on('end', () => {
+                if (exitCode !== 0 || res.statusCode >= 400) {
+                    console.error('Tests failed or error occurred');
+                    process.exit(exitCode || 1);
+                } else {
+                    console.log('Tests completed successfully');
+                    process.exit(0);
+                }
+            });
+
+            res.on('error', (error) => {
+                console.error(`Response error: ${error.message}`);
+                process.exit(1);
             });
         });
+        
         req.on('error', (error) => {
+            console.log(`Unity Editor listener not available (${error.message}), running Unity in batch mode...`);
             // run unity with command line args batchmode, nographics, run tests
-            exec(`${unityPath} -projectPath \"${projectPath}\" -runTests -testPlatform ${testMode} -logFile \"-\"`, (err, stdout, stderr) => {
+            // Unity's testFilter syntax uses semicolons for multiple categories (e.g., "category1;category2")
+            // But we receive comma-separated, so convert commas to semicolons for Unity command line
+            let testFilter = "";
+            if (category !== "All") {
+                // Convert comma-separated categories to semicolon-separated for Unity testFilter
+                const categories = category.split(',').map(c => c.trim()).filter(c => c.length > 0);
+                const unityFilter = categories.join(';');
+                testFilter = `-testFilter "category=${unityFilter}"`;
+            }
+            exec(`${unityPath} -projectPath \"${projectPath}\" -batchmode -nographics -runTests -testPlatform ${testMode} ${testFilter} -logFile -`, (err, stdout, stderr) => {
                 if (err) {
                     console.error(`Error running Unity: ${err}`);
-
+                    process.exit(1);
                     return;
                 }
-                console.log(`stdout: ${stdout}`);
-                console.log(`stderr: ${stderr}`);
+                if (stderr && !stderr.includes('Batchmode') && !stderr.includes('nographics')) {
+                    console.error(`Unity stderr: ${stderr}`);
+                }
+                console.log(`Unity stdout: ${stdout}`);
+                // Exit code from Unity execution indicates test results
+                process.exit(err ? 1 : 0);
             });
+        });
+        
+        req.setTimeout(300000, () => {
+            console.error('Request timeout after 5 minutes');
+            req.destroy();
+            process.exit(1);
         });
 
 }
