@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const {exec} = require("child_process");
 
 // Parse named arguments
@@ -7,6 +8,8 @@ const testMode = rawArgs[0];
 let category = "All";
 let unityPathArg = null;
 let port = process.env.UNITY_GITHOOKS_PORT ? parseInt(process.env.UNITY_GITHOOKS_PORT, 10) : 8080;
+let useBackgroundProject = process.env.UNITY_GITHOOKS_BACKGROUND_PROJECT_ENABLED === "true";
+let backgroundProjectSuffix = process.env.UNITY_GITHOOKS_BACKGROUND_PROJECT_SUFFIX || "-BackgroundWorker";
 
 for (let i = 1; i < rawArgs.length; i++) {
     switch (rawArgs[i]) {
@@ -28,13 +31,84 @@ for (let i = 1; i < rawArgs.length; i++) {
                 i++;
             }
             break;
+        case "--backgroundProject":
+            useBackgroundProject = true;
+            break;
+        case "--backgroundProjectSuffix":
+            if (i + 1 < rawArgs.length) {
+                backgroundProjectSuffix = rawArgs[i + 1];
+                i++;
+            }
+            break;
         default:
             break;
     }
 }
 
-function GetUnityEditorPath(version) {
+// Sync to background project if enabled
+function SyncToBackgroundProject(projectRoot, callback) {
+    if (!useBackgroundProject) {
+        callback(null, projectRoot);
+        return;
+    }
 
+    console.log('[UnityLefthook] Background project mode enabled');
+    
+    // Check if rclone is available
+    exec('rclone version', (err, stdout, stderr) => {
+        if (err) {
+            console.error('[UnityLefthook] rclone not found. Background project mode requires rclone to be installed.');
+            console.error('[UnityLefthook] Please install rclone from https://rclone.org/install/');
+            process.exit(1);
+            return;
+        }
+
+        const projectName = path.basename(projectRoot);
+        const parentDir = path.dirname(projectRoot);
+        const backgroundProjectPath = path.join(parentDir, projectName + backgroundProjectSuffix);
+
+        console.log('[UnityLefthook] Syncing project to background project...');
+        console.log(`  Source: ${projectRoot}`);
+        console.log(`  Destination: ${backgroundProjectPath}`);
+
+        // Ensure destination directory exists
+        if (!fs.existsSync(backgroundProjectPath)) {
+            fs.mkdirSync(backgroundProjectPath, { recursive: true });
+            console.log(`[UnityLefthook] Created destination directory: ${backgroundProjectPath}`);
+        }
+
+        // Use rclone sync to sync the entire repo folder
+        // Sync everything (no exclusions) as requested
+        const rcloneArgs = [
+            'sync',
+            `"${projectRoot}"`,
+            `"${backgroundProjectPath}"`,
+            '--progress'
+        ];
+
+        const rcloneCmd = `rclone ${rcloneArgs.join(' ')}`;
+        console.log(`[UnityLefthook] Running: ${rcloneCmd}`);
+
+        exec(rcloneCmd, (err, stdout, stderr) => {
+            if (err) {
+                console.error(`[UnityLefthook] rclone sync failed: ${err.message}`);
+                if (stderr) {
+                    console.error(`[UnityLefthook] rclone stderr: ${stderr}`);
+                }
+                process.exit(1);
+                return;
+            }
+
+            if (stdout) {
+                console.log(stdout);
+            }
+            console.log('[UnityLefthook] Sync completed successfully');
+            callback(null, backgroundProjectPath);
+        });
+    });
+}
+
+function GetUnityEditorPath(version, projectPath) {
     // install winreg npm
     // install winreg in the script dir
     var options = {
@@ -88,25 +162,34 @@ function GetUnityEditorPath(version) {
         }
 
         unityPath += '/Editor/Unity.exe';
-        RunUnity(unityPath, '.');
+        // Skip HTTP and run in batchmode when background project is enabled
+        RunUnity(unityPath, projectPath || '.', useBackgroundProject);
         return;
     });
 
 }
 
-function RunUnity(unityPath, projectPath) {
+function RunUnity(unityPath, projectPath, skipHttp = false) {
     console.log('Running Unity: ', unityPath);
+    console.log('Project Path: ', projectPath);
 
     // handle path with spaces
     unityPath = `"${unityPath}"`;
 
-        // http get http://localhost:8080/ and log results
-        const http = require('http');
-        const options = {
-            hostname: 'localhost',
-            port: port,
-            headers: {}
-        };
+    // When background project is enabled, skip HTTP and run directly in batchmode
+    if (skipHttp) {
+        console.log('[UnityLefthook] Background project mode: Running Unity in batchmode/headless...');
+        RunUnityBatchmode(unityPath, projectPath);
+        return;
+    }
+
+    // Try HTTP first for normal mode
+    const http = require('http');
+    const options = {
+        hostname: 'localhost',
+        port: port,
+        headers: {}
+    };
 
     // Add headers including repo path
     options.headers['repoPath'] = projectPath;
@@ -115,72 +198,80 @@ function RunUnity(unityPath, projectPath) {
     // Unity Test Runner will match tests that have ALL specified categories
     options.headers['testCategory'] = category;
 
+    const req = http.get(options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`);
 
-        const req = http.get(options, (res) => {
-            console.log(`statusCode: ${res.statusCode}`);
+        let dataBuffer = '';
+        let exitCode = 0;
 
-            let dataBuffer = '';
-            let exitCode = 0;
-
-            res.on('data', (d) => {
-                const data = d.toString();
-                process.stdout.write(data);
-                dataBuffer += data;
-                
-                if (dataBuffer.includes('Tests failed') || res.statusCode >= 400) {
-                    exitCode = 1;
-                }
-            });
-
-            res.on('end', () => {
-                if (exitCode !== 0 || res.statusCode >= 400) {
-                    console.error('Tests failed or error occurred');
-                    process.exit(exitCode || 1);
-                } else {
-                    console.log('Tests completed successfully');
-                    process.exit(0);
-                }
-            });
-
-            res.on('error', (error) => {
-                console.error(`Response error: ${error.message}`);
-                process.exit(1);
-            });
-        });
-        
-        req.on('error', (error) => {
-            console.log(`Unity Editor listener not available (${error.message}), running Unity in batch mode...`);
-            // run unity with command line args batchmode, nographics, run tests
-            // Unity's testFilter syntax uses semicolons for multiple categories (e.g., "category1;category2")
-            // But we receive comma-separated, so convert commas to semicolons for Unity command line
-            let testFilter = "";
-            if (category !== "All") {
-                // Convert comma-separated categories to semicolon-separated for Unity testFilter
-                const categories = category.split(',').map(c => c.trim()).filter(c => c.length > 0);
-                const unityFilter = categories.join(';');
-                testFilter = `-testFilter "category=${unityFilter}"`;
+        res.on('data', (d) => {
+            const data = d.toString();
+            process.stdout.write(data);
+            dataBuffer += data;
+            
+            if (dataBuffer.includes('Tests failed') || res.statusCode >= 400) {
+                exitCode = 1;
             }
-            exec(`${unityPath} -projectPath \"${projectPath}\" -batchmode -nographics -runTests -testPlatform ${testMode} ${testFilter} -logFile -`, (err, stdout, stderr) => {
-                if (err) {
-                    console.error(`Error running Unity: ${err}`);
-                    process.exit(1);
-                    return;
-                }
-                if (stderr && !stderr.includes('Batchmode') && !stderr.includes('nographics')) {
-                    console.error(`Unity stderr: ${stderr}`);
-                }
-                console.log(`Unity stdout: ${stdout}`);
-                // Exit code from Unity execution indicates test results
-                process.exit(err ? 1 : 0);
-            });
         });
-        
-        req.setTimeout(300000, () => {
-            console.error('Request timeout after 5 minutes');
-            req.destroy();
+
+        res.on('end', () => {
+            if (exitCode !== 0 || res.statusCode >= 400) {
+                console.error('Tests failed or error occurred');
+                process.exit(exitCode || 1);
+            } else {
+                console.log('Tests completed successfully');
+                process.exit(0);
+            }
+        });
+
+        res.on('error', (error) => {
+            console.error(`Response error: ${error.message}`);
             process.exit(1);
         });
+    });
+    
+    req.on('error', (error) => {
+        console.log(`Unity Editor listener not available (${error.message}), running Unity in batch mode...`);
+        RunUnityBatchmode(unityPath, projectPath);
+    });
+    
+    req.setTimeout(300000, () => {
+        console.error('Request timeout after 5 minutes');
+        req.destroy();
+        process.exit(1);
+    });
+}
 
+function RunUnityBatchmode(unityPath, projectPath) {
+    // run unity with command line args batchmode, nographics, run tests
+    // Unity's testFilter syntax uses semicolons for multiple categories (e.g., "category1;category2")
+    // But we receive comma-separated, so convert commas to semicolons for Unity command line
+    let testFilter = "";
+    if (category !== "All") {
+        // Convert comma-separated categories to semicolon-separated for Unity testFilter
+        const categories = category.split(',').map(c => c.trim()).filter(c => c.length > 0);
+        const unityFilter = categories.join(';');
+        testFilter = `-testFilter "category=${unityFilter}"`;
+    }
+    
+    const unityCmd = `${unityPath} -projectPath \"${projectPath}\" -batchmode -nographics -runTests -testPlatform ${testMode} ${testFilter} -logFile -`;
+    console.log(`[UnityLefthook] Running Unity in batchmode: ${unityCmd}`);
+    
+    exec(unityCmd, (err, stdout, stderr) => {
+        if (err) {
+            console.error(`Error running Unity: ${err}`);
+            process.exit(1);
+            return;
+        }
+        if (stderr && !stderr.includes('Batchmode') && !stderr.includes('nographics')) {
+            console.error(`Unity stderr: ${stderr}`);
+        }
+        if (stdout) {
+            console.log(`Unity stdout: ${stdout}`);
+        }
+        // Exit code from Unity execution indicates test results
+        process.exit(err ? 1 : 0);
+    });
 }
 
 // read unity project version
@@ -196,7 +287,21 @@ fs.readFile('ProjectSettings/ProjectVersion.txt', 'utf8', (err, data) => {
         if (line.includes('m_EditorVersion:')) {
             let version = line.split(' ')[1];
             console.log('Unity version: ', version);
-            GetUnityEditorPath(version);
+            
+            // Get current project root
+            const projectRoot = path.resolve('.');
+            
+            // Sync to background project if enabled, then get Unity path
+            SyncToBackgroundProject(projectRoot, (err, finalProjectPath) => {
+                if (err) {
+                    console.error(`[UnityLefthook] Background project sync error: ${err}`);
+                    process.exit(1);
+                    return;
+                }
+                
+                // Store the final project path for use in RunUnity
+                GetUnityEditorPath(version, finalProjectPath);
+            });
         }
     }
 
