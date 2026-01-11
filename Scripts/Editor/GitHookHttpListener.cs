@@ -76,6 +76,11 @@ public class GitHookHttpListener : ICallbacks
             // listener disposed, this is expected when stopping
             Debug.Log("[GitHookHttpListener] Listener disposed");
         }
+        catch (ThreadAbortException)
+        {
+            // Thread is being aborted (e.g., during shutdown) - this is expected behavior
+            // ThreadAbortException will automatically re-throw, so we just catch it to avoid logging as an error
+        }
         catch (HttpListenerException ex)
         {
             // Handle HTTP listener exceptions (e.g., when stopping)
