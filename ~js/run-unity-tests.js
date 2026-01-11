@@ -45,6 +45,53 @@ for (let i = 1; i < rawArgs.length; i++) {
     }
 }
 
+// Find Unity project root by looking for ProjectSettings/ProjectVersion.txt
+// Works from any execution context (project root, PackageCache, etc.)
+function FindProjectRoot() {
+    // Method 1: Check current working directory (works when called from lefthook.yml)
+    const cwd = process.cwd();
+    const cwdVersionFile = path.join(cwd, 'ProjectSettings', 'ProjectVersion.txt');
+    if (fs.existsSync(cwdVersionFile)) {
+        return cwd;
+    }
+    
+    // Method 2: Walk up from script location (works when script is in PackageCache or submodule)
+    let currentDir = __dirname;
+    const maxDepth = 10; // Limit search depth
+    for (let i = 0; i < maxDepth; i++) {
+        const versionFile = path.join(currentDir, 'ProjectSettings', 'ProjectVersion.txt');
+        if (fs.existsSync(versionFile)) {
+            return currentDir;
+        }
+        
+        const parentDir = path.dirname(currentDir);
+        if (parentDir === currentDir) {
+            // Reached filesystem root
+            break;
+        }
+        currentDir = parentDir;
+    }
+    
+    // Method 3: Walk up from current working directory (fallback)
+    let checkDir = cwd;
+    for (let i = 0; i < maxDepth; i++) {
+        const versionFile = path.join(checkDir, 'ProjectSettings', 'ProjectVersion.txt');
+        if (fs.existsSync(versionFile)) {
+            return checkDir;
+        }
+        
+        const parentDir = path.dirname(checkDir);
+        if (parentDir === checkDir) {
+            break;
+        }
+        checkDir = parentDir;
+    }
+    
+    // Fallback: return current working directory (may cause errors, but better than failing immediately)
+    console.warn('[UnityLefthook] Could not find ProjectSettings/ProjectVersion.txt, using current directory:', cwd);
+    return cwd;
+}
+
 // Sync to background project if enabled
 function SyncToBackgroundProject(projectRoot, callback) {
     if (!useBackgroundProject) {
@@ -275,9 +322,39 @@ function RunUnityBatchmode(unityPath, projectPath) {
 }
 
 // read unity project version
+// First try relative path (maintains backward compatibility when called from project root via lefthook.yml)
 fs.readFile('ProjectSettings/ProjectVersion.txt', 'utf8', (err, data) => {
+    let projectRoot;
+    let versionFile;
+    
+    // If the relative path doesn't work, try to find project root automatically
     if (err) {
-        console.error(`Error reading file: ${err}`);
+        console.log('[UnityLefthook] ProjectSettings/ProjectVersion.txt not found in current directory, searching for project root...');
+        projectRoot = FindProjectRoot();
+        versionFile = path.join(projectRoot, 'ProjectSettings', 'ProjectVersion.txt');
+        
+        // Try reading from detected project root
+        try {
+            data = fs.readFileSync(versionFile, 'utf8');
+            err = null;
+            console.log(`[UnityLefthook] Found project root: ${projectRoot}`);
+        } catch (readErr) {
+            console.error(`Error reading file: ${versionFile}`);
+            console.error(`Error: ${readErr.message}`);
+            console.error(`Project root: ${projectRoot}`);
+            process.exit(1);
+            return;
+        }
+    } else {
+        // Original behavior: use current working directory as project root
+        projectRoot = path.resolve('.');
+        versionFile = 'ProjectSettings/ProjectVersion.txt';
+    }
+    
+    if (err) {
+        console.error(`Error reading file: ${versionFile}`);
+        console.error(`Error: ${err.message}`);
+        process.exit(1);
         return;
     }
 
@@ -287,9 +364,6 @@ fs.readFile('ProjectSettings/ProjectVersion.txt', 'utf8', (err, data) => {
         if (line.includes('m_EditorVersion:')) {
             let version = line.split(' ')[1];
             console.log('Unity version: ', version);
-            
-            // Get current project root
-            const projectRoot = path.resolve('.');
             
             // Sync to background project if enabled, then get Unity path
             SyncToBackgroundProject(projectRoot, (err, finalProjectPath) => {
