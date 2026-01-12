@@ -31,10 +31,12 @@ public static class GitHookPreferences
         {
             guiHandler = searchContext =>
             {
+                EditorGUILayout.LabelField("Active Workspace Mode (Experimental)", EditorStyles.boldLabel);
                 Port = EditorGUILayout.IntField("Port", Port);
+                EditorGUILayout.HelpBox("Port setting only applies to Active Workspace Mode. Background Worker Mode does not use HTTP connections.", MessageType.Info);
                 
                 EditorGUILayout.Space(10);
-                EditorGUILayout.LabelField("Background Project", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("Background Worker Mode (Recommended)", EditorStyles.boldLabel);
                 
                 BackgroundProjectEnabled = EditorGUILayout.Toggle("Enable Background Project", BackgroundProjectEnabled);
                 
@@ -43,7 +45,7 @@ public static class GitHookPreferences
                 
                 if (BackgroundProjectEnabled)
                 {
-                    EditorGUILayout.HelpBox("Background project mode requires rclone to be installed. When enabled, the entire repository folder will be synced to a background project before running jobs.", MessageType.Info);
+                    EditorGUILayout.HelpBox("Background Worker Mode (recommended) requires rclone to be installed. When enabled, the entire repository folder will be synced to a background project before running jobs. This provides isolated test execution without conflicts.", MessageType.Info);
                 }
                 EditorGUI.EndDisabledGroup();
             }

@@ -85,12 +85,16 @@ Also
 - Allows you to run playmode or editmode tests with an optional `--category` filter
 - Override the detected Unity editor path using `--unityPath <path>` when needed
 - You can specifically run the `EditMode` test category `LefthookCore` to enforce your project is compiling locally and the installation of this tool is correct.
-- If your Unity instance uses a custom port for the Git hook listener, supply `--port <port>` or set the `UNITY_GITHOOKS_PORT` environment variable so the script can reach it.
-- **Background Project Support**: Enable background project mode to run tests against a synced copy of your project instead of the main project. When enabled, rclone is required and the entire repository folder will be synced before running jobs. The background project will run in batchmode/headless mode (HTTP connection is skipped).
-  - Enable via `--backgroundProject` flag, `UNITY_GITHOOKS_BACKGROUND_PROJECT_ENABLED=true` environment variable, or Unity Preferences (`Edit > Preferences > Unity Git Hooks`)
-  - Configure the background project suffix via `--backgroundProjectSuffix <suffix>` flag, `UNITY_GITHOOKS_BACKGROUND_PROJECT_SUFFIX` environment variable, or Unity Preferences (default: `-BackgroundWorker`)
-  - The background project will be created at `<parent-directory>/<project-name><suffix>`
-  - When background project mode is enabled, Unity runs in batchmode/headless mode (no HTTP connection attempt)
+- **⚠️ Execution Modes:**
+  - **Background Project Mode (Recommended)**: Run tests against a synced copy of your project in batchmode/headless. This is the recommended approach as it isolates test execution from your main project and avoids conflicts with active editor instances.
+    - Enable via `--backgroundProject` flag, `UNITY_GITHOOKS_BACKGROUND_PROJECT_ENABLED=true` environment variable, or Unity Preferences (`Edit > Preferences > Unity Git Hooks`)
+    - Configure the background project suffix via `--backgroundProjectSuffix <suffix>` flag, `UNITY_GITHOOKS_BACKGROUND_PROJECT_SUFFIX` environment variable, or Unity Preferences (default: `-BackgroundWorker`)
+    - The background project will be created at `<parent-directory>/<project-name><suffix>`
+    - When background project mode is enabled, Unity runs in batchmode/headless mode (no HTTP connection attempt)
+    - Requires rclone to be installed (see Background Project Support section below)
+  - **Active Workspace Mode (Experimental)**: Attempts to connect to a running Unity editor instance via HTTP. This mode is experimental and may have issues with active editor instances or file conflicts.
+    - If your Unity instance uses a custom port for the Git hook listener, supply `--port <port>` or set the `UNITY_GITHOOKS_PORT` environment variable so the script can reach it.
+    - Falls back to batchmode/headless if HTTP connection fails
 
 #### apply-lfs-plugin-module
 - Used to apply a git plugin that will pull LFS files from a local folder rather than a remote repo. Combined with RClone this can be very effective for large project storage.
@@ -109,13 +113,59 @@ pre-commit:
       run: node ./Library/PackageCache/com.frostebite.unitygithooks@VERSION/~js/notify-git-events.js pre-commit
 ```
 
-### Changing the listener port
+### Changing the listener port (Active Workspace Mode only)
 
-By default Unity Git Hooks listens on port `8080`. If this port is unavailable, open Unity's Preferences (Edit > Preferences on Windows or Unity > Preferences on macOS), select **Unity Git Hooks**, and adjust the **Port** value. When invoking `run-unity-tests.js`, ensure the same port is used by passing `--port <port>` or setting the `UNITY_GITHOOKS_PORT` environment variable.
+**Note:** This only applies to Active Workspace Mode. Background Worker Mode does not use HTTP connections.
 
-### Background Project Support
+By default Unity Git Hooks listens on port `8080` for Active Workspace Mode connections. If this port is unavailable, open Unity's Preferences (Edit > Preferences on Windows or Unity > Preferences on macOS), select **Unity Git Hooks**, and adjust the **Port** value. When invoking `run-unity-tests.js` in Active Workspace Mode, ensure the same port is used by passing `--port <port>` or setting the `UNITY_GITHOOKS_PORT` environment variable.
 
-Background project mode allows you to run lefthook actions (like Unity tests) against a synced copy of your project instead of the main project. This is useful for running tests in isolation without affecting your main project.
+### Execution Modes: Background Worker vs Active Workspace
+
+The `run-unity-tests` script supports two execution modes for running Unity tests:
+
+#### Background Worker Mode (Recommended)
+
+**How it works:**
+- Creates a synced copy of your project in a separate directory (e.g., `C:\Projects\MyGame-BackgroundWorker`)
+- Runs Unity in batchmode/headless mode directly as a command-line process
+- Tests execute in complete isolation from your main project
+- No HTTP connection attempt - Unity runs directly
+
+**Advantages:**
+- ✅ Isolated test execution - doesn't interfere with your active workspace
+- ✅ No conflicts with open Unity editor instances
+- ✅ Clean, controlled environment for each test run
+- ✅ More reliable and predictable behavior
+- ✅ Doesn't require Unity editor to be running
+
+**Requirements:**
+- rclone must be installed and available in your PATH
+- Additional disk space for the background project copy
+
+#### Active Workspace Mode (Experimental)
+
+**How it works:**
+- Attempts to connect to a running Unity editor instance via HTTP on port 8080 (configurable)
+- Runs tests against your active project workspace
+- Falls back to batchmode/headless if HTTP connection fails
+
+**Advantages:**
+- ✅ No additional disk space required
+- ✅ No rclone dependency
+- ✅ Uses existing Unity editor instance (if available)
+
+**Disadvantages:**
+- ⚠️ Experimental - may have reliability issues
+- ⚠️ Potential conflicts with active editor instances
+- ⚠️ File conflicts if workspace is modified during execution
+- ⚠️ Requires Unity editor to be running (or falls back to batchmode)
+- ⚠️ HTTP connection may fail, causing fallback behavior
+
+**Recommendation:** Use **Background Worker Mode** for production use. Active Workspace Mode is provided for testing/debugging purposes.
+
+### Background Project Support (Recommended)
+
+Background project mode (also known as Background Worker Mode) allows you to run lefthook actions (like Unity tests) against a synced copy of your project instead of the main project. **This is the recommended approach** as it isolates test execution from your main project, avoids conflicts with active editor instances, and runs tests in a clean, controlled environment.
 
 **Requirements:**
 - rclone must be installed and available in your PATH

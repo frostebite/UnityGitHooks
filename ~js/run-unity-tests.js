@@ -99,12 +99,12 @@ function SyncToBackgroundProject(projectRoot, callback) {
         return;
     }
 
-    console.log('[UnityLefthook] Background project mode enabled');
+    console.log('[UnityLefthook] Background Worker Mode enabled');
     
     // Check if rclone is available
     exec('rclone version', (err, stdout, stderr) => {
         if (err) {
-            console.error('[UnityLefthook] rclone not found. Background project mode requires rclone to be installed.');
+            console.error('[UnityLefthook] rclone not found. Background Worker Mode requires rclone to be installed.');
             console.error('[UnityLefthook] Please install rclone from https://rclone.org/install/');
             process.exit(1);
             return;
@@ -223,14 +223,14 @@ function RunUnity(unityPath, projectPath, skipHttp = false) {
     // handle path with spaces
     unityPath = `"${unityPath}"`;
 
-    // When background project is enabled, skip HTTP and run directly in batchmode
+    // Background Worker Mode: Skip HTTP and run directly in batchmode
     if (skipHttp) {
-        console.log('[UnityLefthook] Background project mode: Running Unity in batchmode/headless...');
+        console.log('[UnityLefthook] Background Worker Mode: Running Unity in batchmode/headless...');
         RunUnityBatchmode(unityPath, projectPath);
         return;
     }
 
-    // Try HTTP first for normal mode
+    // Active Workspace Mode (Experimental): Try HTTP connection to running Unity editor
     const http = require('http');
     const options = {
         hostname: 'localhost',
