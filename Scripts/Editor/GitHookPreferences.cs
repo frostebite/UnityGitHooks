@@ -1,27 +1,41 @@
 using UnityEditor;
+using UnityBackgroundProject;
 
+/// <summary>
+/// Git hook preferences for UnityLefthook.
+/// Background project settings delegate to UnityBackgroundProject module.
+/// </summary>
 public static class GitHookPreferences
 {
     private const string PortKey = "UnityGitHooks_Port";
-    private const string BackgroundProjectEnabledKey = "UnityGitHooks_BackgroundProjectEnabled";
-    private const string BackgroundProjectSuffixKey = "UnityGitHooks_BackgroundProjectSuffix";
 
+    /// <summary>
+    /// HTTP listener port for Active Workspace Mode.
+    /// </summary>
     public static int Port
     {
         get => EditorPrefs.GetInt(PortKey, 8080);
         set => EditorPrefs.SetInt(PortKey, value);
     }
 
+    /// <summary>
+    /// Whether background project mode is enabled.
+    /// Delegates to BackgroundProjectSettings.
+    /// </summary>
     public static bool BackgroundProjectEnabled
     {
-        get => EditorPrefs.GetBool(BackgroundProjectEnabledKey, false);
-        set => EditorPrefs.SetBool(BackgroundProjectEnabledKey, value);
+        get => BackgroundProjectSettings.Enabled;
+        set => BackgroundProjectSettings.Enabled = value;
     }
 
+    /// <summary>
+    /// Suffix for background project folder name.
+    /// Delegates to BackgroundProjectSettings.
+    /// </summary>
     public static string BackgroundProjectSuffix
     {
-        get => EditorPrefs.GetString(BackgroundProjectSuffixKey, "-BackgroundWorker");
-        set => EditorPrefs.SetString(BackgroundProjectSuffixKey, value);
+        get => BackgroundProjectSettings.Suffix;
+        set => BackgroundProjectSettings.Suffix = value;
     }
 
     [SettingsProvider]
@@ -29,26 +43,49 @@ public static class GitHookPreferences
     {
         return new SettingsProvider("Preferences/Unity Git Hooks", SettingsScope.User)
         {
+            label = "Git Hooks",
             guiHandler = searchContext =>
             {
-                EditorGUILayout.LabelField("Active Workspace Mode (Experimental)", EditorStyles.boldLabel);
-                Port = EditorGUILayout.IntField("Port", Port);
-                EditorGUILayout.HelpBox("Port setting only applies to Active Workspace Mode. Background Worker Mode does not use HTTP connections.", MessageType.Info);
-                
                 EditorGUILayout.Space(10);
-                EditorGUILayout.LabelField("Background Worker Mode (Recommended)", EditorStyles.boldLabel);
-                
+
+                // Active Workspace Mode settings (Lefthook-specific)
+                EditorGUILayout.LabelField("Active Workspace Mode (Experimental)", EditorStyles.boldLabel);
+                Port = EditorGUILayout.IntField("HTTP Listener Port", Port);
+                EditorGUILayout.HelpBox(
+                    "Active Workspace Mode runs tests in the current Unity editor via HTTP. " +
+                    "This is experimental and may cause editor instability.",
+                    MessageType.Info);
+
+                EditorGUILayout.Space(15);
+
+                // Background Project Mode - delegate to BackgroundProjectSettings UI
+                EditorGUILayout.LabelField("Background Project Mode (Recommended)", EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(
+                    "Background Project settings have moved to a dedicated module.\n" +
+                    "Use Edit > Preferences > Unity Background Project for full settings.",
+                    MessageType.Info);
+
+                EditorGUILayout.Space(5);
+
+                // Show quick toggle and link
                 BackgroundProjectEnabled = EditorGUILayout.Toggle("Enable Background Project", BackgroundProjectEnabled);
-                
-                EditorGUI.BeginDisabledGroup(!BackgroundProjectEnabled);
-                BackgroundProjectSuffix = EditorGUILayout.TextField("Project Suffix", BackgroundProjectSuffix);
-                
+
                 if (BackgroundProjectEnabled)
                 {
-                    EditorGUILayout.HelpBox("Background Worker Mode (recommended) requires rclone to be installed. When enabled, the entire repository folder will be synced to a background project before running jobs. This provides isolated test execution without conflicts.", MessageType.Info);
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.LabelField("Suffix:", BackgroundProjectSuffix);
+                    EditorGUILayout.LabelField("Path:", BackgroundProjectSettings.GetBackgroundProjectPath() ?? "(unknown)");
+                    EditorGUI.indentLevel--;
                 }
-                EditorGUI.EndDisabledGroup();
-            }
+
+                EditorGUILayout.Space(5);
+
+                if (GUILayout.Button("Open Background Project Settings"))
+                {
+                    SettingsService.OpenUserPreferences("Preferences/Unity Background Project");
+                }
+            },
+            keywords = new[] { "git", "hooks", "lefthook", "background", "project", "port" }
         };
     }
 }

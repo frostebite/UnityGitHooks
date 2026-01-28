@@ -2,7 +2,8 @@
     "name": "UnityLefthook.editor",
     "rootNamespace": "",
     "references": [
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "UnityBackgroundProject.Editor"
     ],
     "includePlatforms": [
         "Editor"
