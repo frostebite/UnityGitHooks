@@ -1,8 +1,12 @@
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
+using UnityEditor;
+using UnityEditor.Compilation;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 public class GitHookHttpListener : ICallbacks
 {
@@ -54,23 +58,34 @@ public class GitHookHttpListener : ICallbacks
                 {
                     Debug.Log($"[GitHookHttpListener] Repo path: {repoPathHeader}");
                 }
-                string testCategoryHeader = context.Request.Headers["testCategory"];
-                if (!string.IsNullOrEmpty(testCategoryHeader))
-                {
-                    Debug.Log($"[GitHookHttpListener] Test category: {testCategoryHeader}");
-                }
-                string testModeHeader = context.Request.Headers["testMode"];
-                if (!string.IsNullOrEmpty(testModeHeader))
-                {
-                    Debug.Log($"[GitHookHttpListener] Test mode: {testModeHeader}");
-                }
 
                 // Initialize response
                 context.Response.StatusCode = 200;
                 context.Response.ContentType = "text/plain; charset=utf-8";
 
-                // run unity test on main thread
-                UnityLefthook.Enqueue(() => UnityLefthook.Listener.RunGitHook());
+                // Route based on command header
+                string command = context.Request.Headers["command"];
+                if (string.Equals(command, "compile-check", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.Log("[GitHookHttpListener] Compile check requested");
+                    UnityLefthook.Enqueue(() => UnityLefthook.Listener.RunCompileCheck());
+                }
+                else
+                {
+                    // Legacy/default: run tests
+                    string testCategoryHeader = context.Request.Headers["testCategory"];
+                    if (!string.IsNullOrEmpty(testCategoryHeader))
+                    {
+                        Debug.Log($"[GitHookHttpListener] Test category: {testCategoryHeader}");
+                    }
+                    string testModeHeader = context.Request.Headers["testMode"];
+                    if (!string.IsNullOrEmpty(testModeHeader))
+                    {
+                        Debug.Log($"[GitHookHttpListener] Test mode: {testModeHeader}");
+                    }
+
+                    UnityLefthook.Enqueue(() => UnityLefthook.Listener.RunGitHook());
+                }
             }
         }
         catch (ObjectDisposedException)
@@ -216,6 +231,102 @@ public class GitHookHttpListener : ICallbacks
         catch (Exception ex)
         {
             Debug.LogError($"[GitHookHttpListener] Error writing to stream: {ex.Message}");
+        }
+    }
+
+    public void RunCompileCheck()
+    {
+        if (context == null)
+        {
+            Debug.LogError("[GitHookHttpListener] Cannot run compile check: context is null");
+            return;
+        }
+
+        Debug.Log("[GitHookHttpListener] Starting compile check...");
+
+        int compileErrorCount = 0;
+        var stopwatch = Stopwatch.StartNew();
+        var timeout = TimeSpan.FromMinutes(10);
+        bool compilationStarted = false;
+
+        // Track compile errors via log messages
+        void OnLogMessage(string condition, string stacktrace, LogType type)
+        {
+            if (type == LogType.Error && condition.Contains("error CS"))
+            {
+                compileErrorCount++;
+                var buffer = System.Text.Encoding.UTF8.GetBytes($"{condition}\n");
+                lock (streamLock) { WriteToStream(buffer); }
+            }
+        }
+
+        Application.logMessageReceived += OnLogMessage;
+
+        // Force asset refresh and request compilation
+        AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+        try { CompilationPipeline.RequestScriptCompilation(); } catch { /* ignore if not supported */ }
+
+        EditorApplication.update += CompileCheckPoll;
+
+        void CompileCheckPoll()
+        {
+            if (EditorApplication.isCompiling)
+            {
+                compilationStarted = true;
+                if (stopwatch.Elapsed > timeout)
+                {
+                    EditorApplication.update -= CompileCheckPoll;
+                    Application.logMessageReceived -= OnLogMessage;
+                    Debug.LogError("[GitHookHttpListener] Compile check timed out");
+                    RespondCompileCheck(false, "Compile check timed out");
+                }
+                return;
+            }
+
+            // Wait a few frames after requesting compilation for it to actually start
+            if (!compilationStarted && stopwatch.Elapsed.TotalSeconds < 5)
+            {
+                return;
+            }
+
+            EditorApplication.update -= CompileCheckPoll;
+            Application.logMessageReceived -= OnLogMessage;
+
+            bool success = compileErrorCount == 0;
+            string message = success
+                ? $"Compile check passed in {stopwatch.Elapsed.TotalSeconds:F1}s"
+                : $"Compile check failed with {compileErrorCount} error(s)";
+            Debug.Log($"[GitHookHttpListener] {message}");
+            RespondCompileCheck(success, success ? null : message);
+        }
+    }
+
+    private void RespondCompileCheck(bool success, string errorMessage)
+    {
+        if (context == null || context.Response == null)
+        {
+            Debug.LogWarning("[GitHookHttpListener] Cannot write compile check result: context is null");
+            return;
+        }
+
+        lock (streamLock)
+        {
+            try
+            {
+                string message = success
+                    ? "Compile check passed\n"
+                    : $"Compile check failed: {errorMessage}\n";
+
+                var buffer = System.Text.Encoding.UTF8.GetBytes(message);
+                WriteToStream(buffer);
+
+                context.Response.StatusCode = success ? 200 : 500;
+                context.Response.OutputStream.Close();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GitHookHttpListener] Error writing compile check result: {ex.Message}");
+            }
         }
     }
 
