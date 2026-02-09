@@ -1,10 +1,12 @@
 using UnityEditor;
 using UnityEngine;
+#if HAS_BACKGROUND_PROJECT
 using UnityBackgroundProject;
+#endif
 
 /// <summary>
 /// Git hook preferences for UnityLefthook.
-/// Background project settings delegate to UnityBackgroundProject module.
+/// Background project settings delegate to UnityBackgroundProject module when available.
 /// </summary>
 public static class GitHookPreferences
 {
@@ -19,6 +21,7 @@ public static class GitHookPreferences
         set => EditorPrefs.SetInt(PortKey, value);
     }
 
+#if HAS_BACKGROUND_PROJECT
     /// <summary>
     /// Whether background project mode is enabled.
     /// Delegates to BackgroundProjectSettings.
@@ -38,6 +41,7 @@ public static class GitHookPreferences
         get => BackgroundProjectSettings.Suffix;
         set => BackgroundProjectSettings.Suffix = value;
     }
+#endif
 
     [SettingsProvider]
     public static SettingsProvider CreateSettingsProvider()
@@ -57,6 +61,7 @@ public static class GitHookPreferences
                     "This is experimental and may cause editor instability.",
                     MessageType.Info);
 
+#if HAS_BACKGROUND_PROJECT
                 EditorGUILayout.Space(15);
 
                 // Background Project Mode - delegate to BackgroundProjectSettings UI
@@ -85,6 +90,7 @@ public static class GitHookPreferences
                 {
                     SettingsService.OpenUserPreferences("Preferences/Unity Background Project");
                 }
+#endif
             },
             keywords = new[] { "git", "hooks", "lefthook", "background", "project", "port" }
         };

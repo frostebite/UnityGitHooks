@@ -228,7 +228,7 @@ function runBatchmodeCompileCheck(unityPath, projectRoot) {
     console.log(`[compile-check] Unity: ${unityPath}`);
     console.log(`[compile-check] Project: ${projectRoot}`);
 
-    const cmd = `"${unityPath}" -projectPath "${projectRoot}" -batchmode -nographics -executeMethod BuildMethodEditor.CompileCheck -logFile -`;
+    const cmd = `"${unityPath}" -projectPath "${projectRoot}" -batchmode -nographics -executeMethod LefthookCompileCheck.Run -logFile -`;
     console.log(`[compile-check] Command: ${cmd}`);
 
     try {
