@@ -21,6 +21,8 @@ public class LeftHookWindow : EditorWindow
     private string lefthookVersion = string.Empty;
     private string projectRoot = string.Empty;
     private Vector2 scrollPosition;
+    private LefthookHookState hookState;
+    private double lastAutoRefreshTime;
 
     [MenuItem("Window/GitHooks/Lefthook Status")]
     public static void ShowWindow()
@@ -36,6 +38,31 @@ public class LeftHookWindow : EditorWindow
     private void OnEnable()
     {
         CheckStatus();
+        EditorApplication.update += AutoRefresh;
+    }
+
+    private void OnDisable()
+    {
+        EditorApplication.update -= AutoRefresh;
+    }
+
+    private void AutoRefresh()
+    {
+        // Auto-refresh every 2 seconds when a hook is running
+        if (hookState != null && hookState.status == "running")
+        {
+            if (EditorApplication.timeSinceStartup - lastAutoRefreshTime > 2.0)
+            {
+                lastAutoRefreshTime = EditorApplication.timeSinceStartup;
+                RefreshHookState();
+                Repaint();
+            }
+        }
+    }
+
+    private void RefreshHookState()
+    {
+        hookState = LefthookStateReader.ReadState();
     }
 
     private void OnGUI()
@@ -82,7 +109,12 @@ public class LeftHookWindow : EditorWindow
         EditorGUI.indentLevel--;
         
         EditorGUILayout.Space(5);
-        
+
+        // Hook Execution State (file-based)
+        DrawHookStateSection();
+
+        EditorGUILayout.Space(5);
+
         // Project Information
         EditorGUILayout.LabelField("Project", EditorStyles.boldLabel);
         EditorGUI.indentLevel++;
@@ -169,6 +201,99 @@ public class LeftHookWindow : EditorWindow
         EditorGUILayout.EndScrollView();
     }
     
+    private void DrawHookStateSection()
+    {
+        EditorGUILayout.LabelField("Hook Execution", EditorStyles.boldLabel);
+        EditorGUI.indentLevel++;
+
+        if (hookState == null)
+        {
+            EditorGUILayout.LabelField("No hook execution state found", EditorStyles.miniLabel);
+            EditorGUI.indentLevel--;
+            return;
+        }
+
+        // Overall hook status
+        var hookStatusColor = hookState.status == "running" ? new Color(0.4f, 0.7f, 1f) :
+                              hookState.status == "passed" ? new Color(0.3f, 1f, 0.3f) :
+                              hookState.status == "failed" || hookState.status == "error" ? new Color(1f, 0.3f, 0.3f) :
+                              Color.white;
+        var originalColor = GUI.color;
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField($"{hookState.hookName ?? "unknown"}:", GUILayout.Width(150));
+        GUI.color = hookStatusColor;
+        EditorGUILayout.LabelField(hookState.status ?? "unknown", EditorStyles.boldLabel);
+        GUI.color = originalColor;
+        EditorGUILayout.EndHorizontal();
+
+        if (!string.IsNullOrEmpty(hookState.startTime))
+        {
+            if (DateTime.TryParse(hookState.startTime, out var startTime))
+            {
+                var elapsed = (string.IsNullOrEmpty(hookState.endTime) ? DateTime.UtcNow : DateTime.TryParse(hookState.endTime, out var et) ? et : DateTime.UtcNow) - startTime;
+                EditorGUILayout.LabelField($"Duration: {elapsed.TotalSeconds:F1}s", EditorStyles.miniLabel);
+            }
+        }
+
+        if (!string.IsNullOrEmpty(hookState.error))
+        {
+            EditorGUILayout.HelpBox(hookState.error, MessageType.Error);
+        }
+
+        // Steps
+        if (hookState.steps != null && hookState.steps.Count > 0)
+        {
+            EditorGUILayout.Space(3);
+            EditorGUILayout.LabelField("Steps:", EditorStyles.miniLabel);
+            EditorGUI.indentLevel++;
+
+            foreach (var step in hookState.steps)
+            {
+                var stepColor = step.status == "completed" ? new Color(0.3f, 1f, 0.3f) :
+                                step.status == "running" ? new Color(0.4f, 0.7f, 1f) :
+                                step.status == "failed" ? new Color(1f, 0.3f, 0.3f) :
+                                step.status == "skipped" ? new Color(0.6f, 0.6f, 0.6f) :
+                                Color.white;
+
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(step.name, GUILayout.Width(200));
+                GUI.color = stepColor;
+                EditorGUILayout.LabelField(step.status ?? "pending", EditorStyles.miniLabel, GUILayout.Width(80));
+                GUI.color = originalColor;
+
+                if (!string.IsNullOrEmpty(step.detail))
+                {
+                    EditorGUILayout.LabelField(step.detail, EditorStyles.miniLabel);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUI.indentLevel--;
+        }
+
+        // Test summary
+        if (hookState.testSummary != null)
+        {
+            EditorGUILayout.Space(3);
+            EditorGUILayout.LabelField("Test Results:", EditorStyles.miniLabel);
+            EditorGUI.indentLevel++;
+
+            var passColor = hookState.testSummary.failCount > 0 ? new Color(1f, 0.3f, 0.3f) : new Color(0.3f, 1f, 0.3f);
+            GUI.color = passColor;
+            EditorGUILayout.LabelField($"Passed: {hookState.testSummary.passCount}  Failed: {hookState.testSummary.failCount}", EditorStyles.miniLabel);
+            GUI.color = originalColor;
+
+            if (!string.IsNullOrEmpty(hookState.testSummary.testMode))
+                EditorGUILayout.LabelField($"Mode: {hookState.testSummary.testMode}", EditorStyles.miniLabel);
+            if (!string.IsNullOrEmpty(hookState.testSummary.category))
+                EditorGUILayout.LabelField($"Category: {hookState.testSummary.category}", EditorStyles.miniLabel);
+
+            EditorGUI.indentLevel--;
+        }
+
+        EditorGUI.indentLevel--;
+    }
+
     private void DrawStatusRow(string label, bool status, string statusText, bool isHeader = false)
     {
         EditorGUILayout.BeginHorizontal();
@@ -282,6 +407,7 @@ public class LeftHookWindow : EditorWindow
             lefthookDirExists = Directory.Exists(Path.Combine(projectRoot, ".lefthook"));
             debugLoggingEnabled = CheckDebugLoggingEnabled();
             lefthookInitialized = CheckLefthookInitialized(projectRoot, lefthookInstalled, repoHooksInstalled, hooksInstalled);
+            hookState = LefthookStateReader.ReadState();
         });
         
         // Check listener status on main thread

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const {exec} = require("child_process");
+const lefthookState = require('./lefthook-state');
 
 // Parse named arguments
 const rawArgs = process.argv.slice(2);
@@ -230,6 +231,11 @@ function RunUnity(unityPath, projectPath, skipHttp = false) {
         return;
     }
 
+    // Update state with test detail
+    lefthookState.updateStep('run_precommit_tests', {
+        detail: `${testMode} tests via ${skipHttp ? 'batchmode' : 'HTTP'}, category: ${category}`
+    });
+
     // Active Workspace Mode (Experimental): Try HTTP connection to running Unity editor
     const http = require('http');
     const options = {
@@ -262,6 +268,24 @@ function RunUnity(unityPath, projectPath, skipHttp = false) {
         });
 
         res.on('end', () => {
+            // Parse test results from response (format: "Passed: N, Failed: M")
+            const passMatch = dataBuffer.match(/Passed:\s*(\d+)/);
+            const failMatch = dataBuffer.match(/Failed:\s*(\d+)/);
+            if (passMatch || failMatch) {
+                lefthookState.finishHook(
+                    exitCode === 0 && res.statusCode < 400 ? 'passed' : 'failed',
+                    exitCode !== 0 ? 'Tests failed' : null,
+                    {
+                        passCount: passMatch ? parseInt(passMatch[1], 10) : 0,
+                        failCount: failMatch ? parseInt(failMatch[1], 10) : 0,
+                        testMode: testMode,
+                        category: category,
+                        logFile: null
+                    }
+                );
+                lefthookState.finishStep('run_precommit_tests', exitCode === 0 && res.statusCode < 400);
+            }
+
             if (exitCode !== 0 || res.statusCode >= 400) {
                 console.error('Tests failed or error occurred');
                 process.exit(exitCode || 1);
@@ -307,6 +331,8 @@ function RunUnityBatchmode(unityPath, projectPath) {
     exec(unityCmd, (err, stdout, stderr) => {
         if (err) {
             console.error(`Error running Unity: ${err}`);
+            lefthookState.finishStep('run_precommit_tests', false, `Unity batchmode error: ${err.message || err}`);
+            lefthookState.finishHook('failed', `Unity batchmode error: ${err.message || err}`, null);
             process.exit(1);
             return;
         }
@@ -316,6 +342,27 @@ function RunUnityBatchmode(unityPath, projectPath) {
         if (stdout) {
             console.log(`Unity stdout: ${stdout}`);
         }
+
+        // Try to parse test results from stdout
+        const output = (stdout || '') + (stderr || '');
+        const passMatch = output.match(/Passed:\s*(\d+)/i);
+        const failMatch = output.match(/Failed:\s*(\d+)/i);
+        const success = !err;
+        if (passMatch || failMatch) {
+            lefthookState.finishHook(
+                success ? 'passed' : 'failed',
+                null,
+                {
+                    passCount: passMatch ? parseInt(passMatch[1], 10) : 0,
+                    failCount: failMatch ? parseInt(failMatch[1], 10) : 0,
+                    testMode: testMode,
+                    category: category,
+                    logFile: null
+                }
+            );
+        }
+        lefthookState.finishStep('run_precommit_tests', success);
+
         // Exit code from Unity execution indicates test results
         process.exit(err ? 1 : 0);
     });

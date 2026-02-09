@@ -12,6 +12,8 @@ public class GitHookHttpListener : ICallbacks
     private HttpListenerContext context;
     private CancellationTokenSource cancellationTokenSource;
     private readonly object streamLock = new object();
+    private string _currentTestMode;
+    private string _currentTestCategory;
 
     public bool IsRunning => listener != null && listener.IsListening;
 
@@ -116,9 +118,13 @@ public class GitHookHttpListener : ICallbacks
             ? categoryHeader.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
             : Array.Empty<string>();
 
+        // Store for state tracking
+        _currentTestMode = mode;
+        _currentTestCategory = string.Join(",", categoryNames);
+
         // log it
         Debug.Log($"[GitHookHttpListener] Test mode: {mode}");
-        Debug.Log($"[GitHookHttpListener] Test category: {string.Join(",", categoryNames)}");
+        Debug.Log($"[GitHookHttpListener] Test category: {_currentTestCategory}");
 
         var filter = new Filter
         {
@@ -146,6 +152,22 @@ public class GitHookHttpListener : ICallbacks
         Debug.Log($"[GitHookHttpListener] Tests finished - Passed: {result.PassCount}, Failed: {result.FailCount}");
         testRunnerApi.UnregisterCallbacks(this);
         Application.logMessageReceived -= ApplicationOnlogMessageReceived;
+
+        // Write test results to file-based state
+        try
+        {
+            LefthookStateReader.UpdateTestSummary(
+                result.PassCount,
+                result.FailCount,
+                _currentTestMode ?? "EditMode",
+                _currentTestCategory ?? "",
+                null
+            );
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[GitHookHttpListener] Failed to update lefthook state: {ex.Message}");
+        }
 
         if (context == null || context.Response == null)
         {
